@@ -35,7 +35,7 @@ float hairMask(vec3 p, vec3 eye){
 // Sacred markings (tripundra, third eye), blue throat, brows and the wrapped loin-cloth are
 // painted procedurally in rest-pose space, so no UV textures are needed.
 export function skinMaterial(landmarks, waistY) {
-  const m = new THREE.MeshStandardMaterial({ color: 0x5a6068, roughness: 0.52, metalness: 0.0 });
+  const m = new THREE.MeshStandardMaterial({ color: 0x4d6488, roughness: 0.5, metalness: 0.0 });
   m.userData.uniforms = {
     uEyeL: { value: new THREE.Vector3(...landmarks.eyeL) },
     uEyeR: { value: new THREE.Vector3(...landmarks.eyeR) },
@@ -49,11 +49,12 @@ export function skinMaterial(landmarks, waistY) {
   m.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, m.userData.uniforms);
     sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vRest;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvRest = position;');
+      .replace('#include <common>', '#include <common>\nvarying vec3 vRest;\nattribute float cavity;\nvarying float vCav;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvRest = position;\nvCav = cavity;');
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
 varying vec3 vRest;
+varying float vCav;
 uniform vec3 uEyeL; uniform vec3 uEyeR; uniform float uWaist; uniform float uThirdEye; uniform vec3 uEmber; uniform float uLipY; uniform float uChinY;
 float gThird = 0.;
 float gCloth = 0.;
@@ -65,8 +66,12 @@ ${NOISE}${TIGER}`)
   float eyeY = uEyeL.y, eyeZ = uEyeL.z;
   float n = fbm3(p * 55.);
   // ash-dusted skin: mottled, paler on raised forms
-  diffuseColor.rgb *= .86 + .28 * n;
-  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.62, .64, .66), .22 * smoothstep(.45, .8, fbm3(p * 9. + 3.)));
+  diffuseColor.rgb *= .9 + .2 * n;
+  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.56, .6, .68), .12 * smoothstep(.45, .8, fbm3(p * 9. + 3.)));
+  // muscle separation: grooves darken and cool, ridges catch a little more light
+  float cv = clamp(vCav, -1., 1.);
+  diffuseColor.rgb *= 1. + .22 * max(cv, 0.) - .5 * smoothstep(0., .8, -cv);
+  diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(.7, .76, 1.), .4 * smoothstep(0., .7, -cv));
   float face = step(eyeZ - .02, p.z) * step(abs(p.x), .09);
   // nilakantha: the blue throat
   float throat = smoothstep(eyeY - .21, eyeY - .16, p.y) * smoothstep(eyeY - .085, eyeY - .12, p.y) * smoothstep(.0, .03, p.z - (eyeZ - .09)) * smoothstep(.065, .03, abs(p.x));
@@ -75,8 +80,8 @@ ${NOISE}${TIGER}`)
   for (int s = 0; s < 2; s++) {
     vec3 e = s == 0 ? uEyeL : uEyeR;
     float sx = (p.x - e.x) * (s == 0 ? 1. : -1.);          // + towards the temple
-    float by = e.y + .0165 + .0045 * cos(clamp((sx - .004) * 34., -1.6, 1.6)) - max(sx - .02, 0.) * .2;
-    float taper = mix(.0086, .003, smoothstep(.0, .04, sx));
+    float by = e.y + .0168 + .0018 * cos(clamp((sx - .006) * 30., -1.6, 1.6)) + sx * .07 - max(sx - .03, 0.) * .3;
+    float taper = mix(.0092, .0035, smoothstep(-.005, .042, sx));
     float hairs = .75 + .25 * fbm3(vec3(p.x * 900., p.y * 300., 1.));
     float brow = smoothstep(taper, taper * .35, abs(p.y - by)) * smoothstep(-.024, -.014, sx) * smoothstep(.043, .03, sx) * face * hairs;
     diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.018, .014, .011), brow * .95);
@@ -124,7 +129,7 @@ ${NOISE}${TIGER}`)
   gCloth = cloth;
 }`)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
-roughnessFactor = mix(roughnessFactor + (fbm3(vRest * 70.) - .5) * .22, .92, gCloth);
+roughnessFactor = mix(roughnessFactor + (fbm3(vRest * 70.) - .5) * .22 - .08 * max(vCav, 0.), .92, gCloth);
 roughnessFactor = mix(roughnessFactor, .97, gHair);`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
 totalEmissiveRadiance += uEmber * gThird * uThirdEye * 3.;`);
@@ -154,6 +159,34 @@ export function fabricMaterial(kind = 'tiger', seed = 1) {
   };
   return m;
 }
+
+// Sash: a strip of tiger skin edged with a narrow gold-thread border (uv.x across, uv.y along)
+export function sashMaterial() {
+  const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85, metalness: 0, side: THREE.DoubleSide });
+  m.defines = { USE_UV: '' };
+  m.customProgramCacheKey = () => 'sash';
+  m.onBeforeCompile = (sh) => {
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', `#include <common>\n${NOISE}${TIGER}`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+{
+  vec3 c = tigerSkin(vec2(vUv.x * .5 + .25, vUv.y * .09), 7.);
+  float edge = min(vUv.x, 1. - vUv.x);
+  float trim = smoothstep(.1, .07, edge) * smoothstep(.0, .025, edge);
+  c = mix(c, vec3(.78, .54, .2) * (.75 + .25 * step(.5, fract(vUv.y * 3.))), trim);
+  c *= (.55 + .45 * smoothstep(.0, .05, edge)) * .72;
+  diffuseColor.rgb = c;
+}`)
+      .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+{ float edge = min(vUv.x, 1. - vUv.x); roughnessFactor = mix(roughnessFactor, .35, smoothstep(.1, .07, edge) * smoothstep(.0, .025, edge)); }`)
+      .replace('#include <metalnessmap_fragment>', `#include <metalnessmap_fragment>
+{ float edge = min(vUv.x, 1. - vUv.x); metalnessFactor = smoothstep(.1, .07, edge) * smoothstep(.0, .025, edge); }`);
+  };
+  return m;
+}
+
+export const pearl = () => new THREE.MeshStandardMaterial({ color: 0xe9e2d4, roughness: 0.2, metalness: 0.0 });
+export const gem = (hex) => new THREE.MeshStandardMaterial({ color: hex, roughness: 0.08, metalness: 0.2, emissive: hex, emissiveIntensity: 0.2 });
 
 export const gold = () => new THREE.MeshStandardMaterial({ color: 0xd8a343, roughness: 0.34, metalness: 1.0 });
 export const rudraksha = () => new THREE.MeshStandardMaterial({ color: 0x4a2414, roughness: 0.78, metalness: 0.0 });

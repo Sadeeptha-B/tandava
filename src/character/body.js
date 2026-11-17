@@ -16,6 +16,7 @@ export async function loadBody(base = './assets/') {
     if (skinned) {
       g.setAttribute('skinIndex', new THREE.BufferAttribute(new Uint16Array(view(Uint8Array, part.skinIndex)), 4));
       g.setAttribute('skinWeight', new THREE.BufferAttribute(view(Uint8Array, part.skinWeight), 4, true));
+      if (part.cavity) g.setAttribute('cavity', new THREE.BufferAttribute(view(Int8Array, part.cavity), 1, true));
     }
     g.setIndex(new THREE.BufferAttribute(view(Uint32Array, part.index), 1));
     g.computeBoundingSphere();

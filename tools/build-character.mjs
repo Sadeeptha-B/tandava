@@ -11,7 +11,7 @@ const SRC = join(ROOT, 'assets-src', 'makehuman');
 const OUT = join(ROOT, 'public', 'assets');
 
 // ---------------------------------------------------------------- recipe
-const MUSCLE = 0.85; // 0 = average, 1 = MakeHuman "max muscle"
+const MUSCLE = 1.0; // 0 = average, 1 = MakeHuman "max muscle"
 const EYES_CLOSED = 0.94; // rest state: lids lowered in meditation (the eyesOpen morph raises them)
 const TARGETS = {
   'universal-male-young-averagemuscle-averageweight': 1 - MUSCLE,
@@ -21,36 +21,52 @@ const TARGETS = {
   'african-male-young': 0.2,
   'male-young-maxmuscle-averageweight-idealproportions': 0.8 * MUSCLE,
   'male-young-averagemuscle-averageweight-idealproportions': 0.8 * (1 - MUSCLE),
-  'torso-vshape-incr': 0.45,
-  'torso-muscle-pectoral-incr': 0.25,
-  'stomach-tone-incr': 0.8,
+  'torso-vshape-incr': 0.7,
+  'torso-muscle-pectoral-incr': 0.55,
+  'torso-muscle-dorsi-incr': 0.5,
+  'stomach-tone-incr': 1.0,
+  'measure-shoulder-dist-incr': 0.55,
+  'measure-waist-circ-decr': 0.3,
+  'measure-upperarm-circ-incr': 0.45,
+  'measure-neck-circ-incr': 0.5,
+  'neck-scale-horiz-incr': 0.3,
+  'l-upperarm-shoulder-muscle-incr': 0.8,
+  'r-upperarm-shoulder-muscle-incr': 0.8,
+  'l-upperarm-muscle-incr': 0.6,
+  'r-upperarm-muscle-incr': 0.6,
+  'l-lowerarm-muscle-incr': 0.5,
+  'r-lowerarm-muscle-incr': 0.5,
   'eye-left-closure': EYES_CLOSED,
   'eye-right-closure': EYES_CLOSED,
   // face: an idealised, sculptural head – oval, high cheekbones, long straight nose, full bowed lips, long eyes
-  'head-oval': 0.5,
+  'head-oval': 0.25,
+  'head-square': 0.35,
+  'forehead-temple-decr': 0.3,
+  'eyebrows-trans-forward': 0.45,
+  'eyebrows-angle-down': 0.25,
+  'nose-scale-horiz-decr': 0.2,
+  'chin-width-incr': 0.25,
   'head-fat-decr': 0.35,
   'forehead-scale-vert-decr': 0.6,
   'chin-bones-incr': 0.35,
   'chin-prominent-incr': 0.25,
-  'chin-width-decr': 0.25,
   'l-cheek-bones-incr': 0.6,
   'r-cheek-bones-incr': 0.6,
-  'l-cheek-volume-decr': 0.45,
-  'r-cheek-volume-decr': 0.45,
+  'l-cheek-volume-decr': 0.65,
+  'r-cheek-volume-decr': 0.65,
   'nose-scale-vert-incr': 0.2,
   'nose-greek-incr': 0.5,
   'nose-scale-depth-incr': 0.3,
   'nose-point-down': 0.25,
   'nose-width2-decr': 0.3,
-  'mouth-cupidsbow-incr': 0.6,
-  'mouth-lowerlip-volume-incr': 0.5,
-  'mouth-upperlip-volume-incr': 0.35,
-  'mouth-angles-up': 0.35,
+  'mouth-cupidsbow-incr': 0.45,
+  'mouth-lowerlip-volume-incr': 0.2,
+  'mouth-upperlip-volume-incr': 0.1,
+  'mouth-angles-up': 0.2,
   'l-eye-corner2-up': 0.35,
   'r-eye-corner2-up': 0.35,
   'l-eye-scale-incr': 0.3,
   'r-eye-scale-incr': 0.3,
-  'eyebrows-angle-up': 0.3,
   'eyebrows-trans-down': 0.35,
 };
 // runtime facial morphs: weighted sums of MakeHuman expression units (sparse deltas in the asset)
@@ -300,6 +316,53 @@ function buildPart(faces, levels, extras = []) {
 }
 
 const body = buildPart(bodyFaces, 1, Object.values(morphSrc));
+
+{
+  const n = body.pos.length;
+  const nbr = Array.from({ length: n }, () => new Set());
+  for (const f of body.quads) for (let k = 0; k < f.length; k++) { const a = f[k], b = f[(k + 1) % f.length]; nbr[a].add(b); nbr[b].add(a); }
+  const nb = nbr.map((st) => [...st]);
+  const smooth = (src, iters, lambda = 0.5) => {
+    let cur = src.map((p) => p.slice());
+    for (let it = 0; it < iters; it++) {
+      const nx = cur.map((p, i) => {
+        const l = nb[i]; if (!l.length) return p.slice();
+        const m = [0, 0, 0]; for (const j of l) { m[0] += cur[j][0]; m[1] += cur[j][1]; m[2] += cur[j][2]; }
+        return [p[0] + lambda * (m[0] / l.length - p[0]), p[1] + lambda * (m[1] / l.length - p[1]), p[2] + lambda * (m[2] / l.length - p[2])];
+      });
+      cur = nx;
+    }
+    return cur;
+  };
+  // area-weighted vertex normals
+  const nrm = Array.from({ length: n }, () => [0, 0, 0]);
+  for (const f of body.quads) {
+    const [a, b, c] = [body.pos[f[0]], body.pos[f[1]], body.pos[f[2]]];
+    const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+    const fn = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+    for (const i of f) { nrm[i][0] += fn[0]; nrm[i][1] += fn[1]; nrm[i][2] += fn[2]; }
+  }
+  for (const v of nrm) { const l = Math.hypot(v[0], v[1], v[2]) || 1; v[0] /= l; v[1] /= l; v[2] /= l; }
+  // region mask: torso, shoulders, arms, legs – not head, neck, hands or feet
+  const DEF = /^(hips|spine0[1-4]|clavicle|shoulder01|upperarm|lowerarm0[12]|upperleg|lowerleg0[12])/;
+  let mask = body.wts.map((m) => { let s = 0, t = 0; for (const [b, w] of m) { t += w; if (DEF.test(bones[b].name)) s += w; } return [t ? s / t : 0, 0, 0]; });
+  mask = smooth(mask, 6).map((v) => Math.min(1, Math.max(0, (v[0] - 0.25) / 0.6)));
+  const AMP = 0.85;               // how strongly to exaggerate mid-scale forms
+  const broad = smooth(body.pos, 10);
+  const fine = smooth(body.pos, 3);
+  body.cavity = new Float32Array(n);
+  let moved = 0;
+  for (let i = 0; i < n; i++) {
+    const p = body.pos[i], q = broad[i], N = nrm[i];
+    const d = (p[0] - q[0]) * N[0] + (p[1] - q[1]) * N[1] + (p[2] - q[2]) * N[2];
+    const k = AMP * mask[i];
+    p[0] += N[0] * d * k; p[1] += N[1] * d * k; p[2] += N[2] * d * k;
+    moved = Math.max(moved, Math.abs(d * k));
+    const f = fine[i], df = (p[0] - f[0]) * N[0] + (p[1] - f[1]) * N[1] + (p[2] - f[2]) * N[2];
+    body.cavity[i] = (df + d * 0.35) * (0.35 + 0.65 * mask[i]);
+  }
+  console.log('muscle definition: max offset %s mm', (moved * 1000).toFixed(1));
+}
 const eyes = buildPart([...groups['helper-l-eye'], ...groups['helper-r-eye']], 1);
 const scalp = buildPart(groups['helper-hair'], 1);
 
@@ -318,6 +381,8 @@ const scalp = buildPart(groups['helper-hair'], 1);
       if (!dup.has(v)) {
         dup.set(v, body.pos.length);
         body.pos.push(body.pos[v].slice());
+        body.cavityList ??= Array.from(body.cavity);
+        body.cavityList.push(body.cavity[v]);
         const m = new Map();
         for (const [b, w] of body.wts[v]) m.set(armSrc.get(b) ?? b, w);
         body.wts.push(m);
@@ -372,7 +437,13 @@ function pack(part) {
     });
     if (top.length) skinWeight[i * 4] = 255 - acc; else { skinIndex[i * 4] = boneIndex.get('head'); skinWeight[i * 4] = 255; }
   });
-  return { position, normal, skinIndex, skinWeight, index: new Uint32Array(index) };
+  const out = { position, normal, skinIndex, skinWeight, index: new Uint32Array(index) };
+  if (part.cavityList) {
+    const c = new Int8Array(n);
+    for (let i = 0; i < n; i++) c[i] = Math.max(-127, Math.min(127, Math.round(part.cavityList[i] / 0.006 * 127)));
+    out.cavity = c;
+  }
+  return out;
 }
 
 // arm-duplicate normals: accumulate face normals across coincident originals so the seam shades smoothly

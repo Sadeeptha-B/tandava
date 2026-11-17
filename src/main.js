@@ -51,6 +51,7 @@ async function start() {
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(0x000000, 0.03);
   const camera = new THREE.PerspectiveCamera(31, innerWidth / innerHeight, 0.1, 600);
+  camera.layers.enable(1); // small ornaments (see secondary.js)
   camera.position.set(0, 1.1, 7);
 
   const palette = new Palette(['fire', 'water', 'both'].includes(q.get('el')) ? q.get('el') : 'both');
@@ -148,7 +149,7 @@ async function start() {
     dress.skin.userData.uniforms.uEmber.value.copy(P.flame);
     dress.eyeMat.userData.uniforms.uGlow.value = 0.03 * I + pulse * 0.1;
     // hair rim: warm from the ring behind, cool from the water light, so the jata reads against the dark hall
-    dress.hair.rim.copy(P.rim).multiplyScalar(0.1 + 0.04 * I).add(_rimCool.copy(P.fill).multiplyScalar(0.05));
+    dress.hair.rim.copy(P.fill).multiplyScalar(0.09 + 0.03 * I).add(_rimCool.copy(P.rim).multiplyScalar(0.025));
     dress.eyeMat.userData.uniforms.uEmber.value.copy(P.flame);
 
     rig.update(time, dt, performer);

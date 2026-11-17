@@ -3,6 +3,7 @@ import { Collider } from './verlet.js';
 import { createHair } from './hair.js';
 import { createGarment } from './garment.js';
 import { createOrnaments } from './ornaments.js';
+import { createSash } from './sash.js';
 import { skinMaterial, eyeMaterial } from './materials.js';
 import { createFace } from './face.js';
 
@@ -14,7 +15,8 @@ export function attachSecondary(character, opts = {}) {
   const v = (a) => new THREE.Vector3(...a);
   const C = (a, offA, rA, b = null, offB = [0, 0, 0], rB = rA) => new Collider(B[a], v(offA), rA, b ? B[b] : null, v(offB), rB);
 
-  const headC = C('head', [0, 0.085, -0.012], 0.102);
+  // skull: a front-to-back capsule (the head is narrower than it is deep; a sphere pushed side hair out)
+  const headC = C('head', [0, 0.083, -0.046], 0.071, 'head', [0, 0.083, 0.02], 0.071);
   const neckC = C('neck01', [0, 0, 0], 0.058, 'head', [0, 0.02, 0], 0.062);
   const torsoC = C('spine01', [0, 0.07, 0.015], 0.15, 'hips', [0, 0.05, 0], 0.142);
   const shouldersC = C('upperarm01.L', [-0.02, 0, 0], 0.08, 'upperarm01.R', [0.02, 0, 0], 0.08);
@@ -72,12 +74,21 @@ export function attachSecondary(character, opts = {}) {
     const dx = x - hp.x, dz = z - hp.z;
     const r = Math.hypot(dx, dz) + 0.12;
     out.x = W * ((dx / r) * 11 + Math.sin(t * 2.1 + i * 0.37) * 2.6) + state.gust * (dx / r) * 7;  // stamps flare the locks outward
-    out.y = W * (9.5 + 3.5 * Math.sin(t * 1.3 + i * 0.5)) + state.gust * 3;
+    out.y = W * (8 + 3 * Math.sin(t * 1.3 + i * 0.5));
     out.z = W * ((dz / r) * 5 + Math.cos(t * 2.6 + i * 0.23) * 2.6 - 3);
     return out;
   };
   garment.sim.wind = wind;
   ornaments.mala.wind = wind;
+  ornaments.pearls.wind = wind;
+  const sash = createSash(character);
+  // small ornaments live on layer 1 only: the main camera sees them, but the water reflection
+  // and the shadow pass (both layer 0) skip them – they are far too small to matter there
+  const detail = (o) => o.traverse((c) => { c.layers.set(1); c.castShadow = false; });
+  for (const m of ornaments.meshes) detail(m);
+  if (ornaments.damaru) detail(ornaments.damaru);
+  detail(character.eyes);
+  hair.knot.traverse((c) => { if (c.isInstancedMesh || (c.isMesh && c.material && c.material.metalness === 1)) detail(c); });
   character.performer.onStamp((e) => { state.gust = Math.max(state.gust, e.strength * 1.6); });
 
   const driver = {

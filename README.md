@@ -78,13 +78,13 @@ choreography, with everything else (hair, cloth, water, fire, light) reacting to
 
 | Area | Files | Notes |
 |---|---|---|
-| Character asset | `tools/build-character.mjs` | MakeHuman base mesh + macro/detail morphs (muscular male, sculpted face), Catmull-Clark subdivision, rear arm pair cloned from the shoulder joint down with its own bone chain, six sparse facial morphs. 74k vertices, 121 bones. |
+| Character asset | `tools/build-character.mjs` | MakeHuman base mesh + macro/detail morphs (heroic build: broad shoulders, heavy deltoids; angular, clean-shaven face), Catmull-Clark subdivision, a build-time sharpening pass that defines the muscle forms plus a baked cavity term for the shader, rear arm pair cloned from the shoulder joint down with its own bone chain, six sparse facial morphs. 74k vertices, 121 bones. |
 | Face | `src/character/face.js` | Expression keyed to the dance: eyes closed in stillness, opening through the awakening, widest at the landing; brow gathers as the dance builds; a faint smile in the afterglow; breath and slow blinks. |
 | Rig | `src/character/rig.js` | Analytic solver: two-bone IK for legs, direction-driven arms, swing/twist split onto MakeHuman's twist bones (pivot-compensated), hinge-safe elbows, mudra finger poses, rate-limited "spotting" head. |
 | Choreography engine | `src/character/choreo.js` | Beat-timed keys per channel, monotone cubic interpolation (planted feet stay planted), `hit` easing for stamps, weight-based balance, automatic hip drop so legs never over-stretch, successive joint lag for follow-through, impact spring, foot-contact events. |
 | The dance | `src/character/tandava.js` | 80 beats at 100 BPM: **A** awakening → aramandi → Nataraja pose; **B** stamps, lunges, knee lifts, rechaka (torso circles), accelerating footwork; **C** pivot spin → leap → landing stamp; **D** return. Loops seamlessly (the 360° turn is unwrapped across the seam). |
-| Secondary motion | `verlet.js`, `hair.js`, `garment.js`, `ornaments.js` | Hair in four layers (swept-back locks over the scalp from the hairline, coiled topknot, ~85 simulated locks at the back, ~75 side locks draped over the temples and ears to frame the face), with a light-tinted rim so it reads against the dark hall. One Verlet solver for the locks, tiger-skin panels, sashes and the rudraksha mala, colliding with body capsules fitted to the mesh; wind field driven by the dance. |
-| Look | `materials.js`, `src/stage/*`, `src/fx/*` | Procedural skin (ash, tripundra, third eye, blue throat, brows, kohl) and eyes, planar-reflection water with impact ripples, fire ring shader, GPU embers, CPU splash/flame particles, HDR bloom + filmic grade. |
+| Secondary motion | `verlet.js`, `hair.js`, `garment.js`, `ornaments.js`, `sash.js` | Hair: flat ribbons swept back over the scalp into a coiled topknot (gold and pearl band); broad flattened locks that sweep from the temples back over the ears and fall down the back; locks over each shoulder framing the face; back locks mixing clumps and matted ropes. A face guard keeps every lock out of the face. One Verlet solver drives the hair, tiger-skin panels, sashes, rudraksha mala and pearl strand, colliding with body capsules fitted to the mesh; wind field driven by the dance. The diagonal tiger-skin sash is laid on the body surface and skinned with the weights beneath it. |
+| Look | `materials.js`, `src/stage/*`, `src/fx/*` | Procedural blue skin (ash, cavity shading, tripundra, third eye, blue throat, brows, kohl) and eyes; gold armbands with ruby crests and bangles; planar-reflection water with impact ripples, fire ring shader, GPU embers, CPU splash/flame particles, HDR bloom + filmic grade. Small ornaments sit on a detail layer that the reflection and shadow passes skip. |
 | Audio | `src/audio.js` | Entirely synthesised in Web Audio (drone, damaru, tala pulse, stamp hits) — no samples, nothing to license. |
 | Dev tools | `lab.html`, `tools/shot.mjs` | Pose lab with contact sheets and a numerical motion audit; headless screenshot helper. |
 
@@ -101,7 +101,7 @@ on one spot.
 - **Visual review** of contact sheets every half beat and full-pipeline stills at key moments, in all three looks,
   landscape and portrait.
 - **Runtime:** production build succeeds; UI buttons, keyboard shortcuts, audio toggle, reduced-motion start
-  (paused on the Nataraja pose) exercised in headless Edge; roughly 45–55 fps at 1600×900 on integrated Intel Iris Xe
+  (paused on the Nataraja pose) exercised in headless Edge; roughly 45–52 fps at 1600×900 on integrated Intel Iris Xe
   (medium tier, resolution governor active).
 
 ## Known limitations and what remains

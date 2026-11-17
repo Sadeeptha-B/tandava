@@ -48,6 +48,13 @@ const FILES = [
     'eyes/l-eye-corner2-up', 'eyes/r-eye-corner2-up', 'eyes/l-eye-scale-incr', 'eyes/r-eye-scale-incr',
     'eyebrows/eyebrows-angle-up', 'eyebrows/eyebrows-trans-down',
     'chin/chin-width-decr',
+    // heroic build and a more angular face (reference pass 2)
+    'measure/measure-shoulder-dist-incr', 'measure/measure-upperarm-circ-incr', 'measure/measure-neck-circ-incr', 'measure/measure-waist-circ-decr',
+    'armslegs/l-upperarm-shoulder-muscle-incr', 'armslegs/r-upperarm-shoulder-muscle-incr',
+    'armslegs/l-upperarm-muscle-incr', 'armslegs/r-upperarm-muscle-incr',
+    'armslegs/l-lowerarm-muscle-incr', 'armslegs/r-lowerarm-muscle-incr',
+    'head/head-square', 'chin/chin-width-incr', 'eyebrows/eyebrows-trans-forward', 'eyebrows/eyebrows-angle-down',
+    'forehead/forehead-temple-decr', 'nose/nose-scale-horiz-decr', 'neck/neck-scale-horiz-incr',
     // expression units (runtime morphs)
     'expression/units/caucasian/eyebrows-left-down', 'expression/units/caucasian/eyebrows-right-down',
     'expression/units/caucasian/eyebrows-left-inner-up', 'expression/units/caucasian/eyebrows-right-inner-up',

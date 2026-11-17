@@ -29,6 +29,7 @@ const zoom = +(q.get('zoom') ?? 1);
 const cy = +(q.get('cy') ?? 1.05);
 const cx = +(q.get('cx') ?? 0);
 const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 50);
+camera.layers.enable(1);
 const views = { front: [0, 0, 8], side: [8, 0, 0], back: [0, 0, -8], 34: [4.5, 1.2, 6.5], top: [0, 8, 0.01], left: [-8, 0, 0] };
 const setView = (name, w, h) => {
   const v = views[name] ?? views.front;
