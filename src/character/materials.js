@@ -24,7 +24,7 @@ vec3 tigerSkin(vec2 uv, float seed){
 // 1 on the scalp (same function is mirrored on the CPU in hair.js)
 float hairMask(vec3 p, vec3 eye){
   float drop = clamp((eye.z - .055 - p.z) * 1.5, 0., .165);
-  float line = eye.y + .072 - drop + .006 * sin(p.x * 90.);
+  float line = eye.y + .064 - drop + .004 * sin(p.x * 90.) - .01 * (1. - smoothstep(0., .02, abs(p.x)));
   float m = smoothstep(line - .003, line + .003, p.y) * step(abs(p.x), .12) * step(eye.y - .11, p.y);
   if (abs(p.x) > .066 && p.y < eye.y + .034 && p.z > eye.z - .14 && p.z < eye.z - .05) m = 0.;
   return m;
@@ -41,6 +41,8 @@ export function skinMaterial(landmarks, waistY) {
     uEyeR: { value: new THREE.Vector3(...landmarks.eyeR) },
     uWaist: { value: waistY },
     uThirdEye: { value: 0.25 },
+    uLipY: { value: (landmarks.lipUpper[1] + landmarks.lipLower[1]) / 2 },
+    uChinY: { value: landmarks.chin[1] },
     uEmber: { value: new THREE.Color(1.0, 0.45, 0.1) },
   };
   m.customProgramCacheKey = () => 'skin';
@@ -52,7 +54,7 @@ export function skinMaterial(landmarks, waistY) {
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
 varying vec3 vRest;
-uniform vec3 uEyeL; uniform vec3 uEyeR; uniform float uWaist; uniform float uThirdEye; uniform vec3 uEmber;
+uniform vec3 uEyeL; uniform vec3 uEyeR; uniform float uWaist; uniform float uThirdEye; uniform vec3 uEmber; uniform float uLipY; uniform float uChinY;
 float gThird = 0.;
 float gCloth = 0.;
 float gHair = 0.;
@@ -69,29 +71,39 @@ ${NOISE}${TIGER}`)
   // nilakantha: the blue throat
   float throat = smoothstep(eyeY - .21, eyeY - .16, p.y) * smoothstep(eyeY - .085, eyeY - .12, p.y) * smoothstep(.0, .03, p.z - (eyeZ - .09)) * smoothstep(.065, .03, abs(p.x));
   diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.07, .16, .34), throat * .6);
-  // brows
+  // brows: full, dark, sweeping out to the temples; kohl along the lowered lids
   for (int s = 0; s < 2; s++) {
     vec3 e = s == 0 ? uEyeL : uEyeR;
     float sx = (p.x - e.x) * (s == 0 ? 1. : -1.);          // + towards the temple
-    float by = e.y + .0185 + .004 * cos(clamp(sx * 38., -1.6, 1.6)) - max(sx - .018, 0.) * .28;
-    float brow = smoothstep(.0046, .0015, abs(p.y - by)) * smoothstep(-.021, -.012, sx) * smoothstep(.032, .02, sx) * face;
-    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.03, .025, .02), brow * .85);
-    // lash line of the lowered lid
-    float lash = smoothstep(.0022, .0004, abs(p.y - (e.y - .0035 - sx * sx * 3.))) * smoothstep(.018, .012, abs(sx)) * face;
-    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.03, .025, .02), lash * .6);
+    float by = e.y + .0165 + .0045 * cos(clamp((sx - .004) * 34., -1.6, 1.6)) - max(sx - .02, 0.) * .2;
+    float taper = mix(.0086, .003, smoothstep(.0, .04, sx));
+    float hairs = .75 + .25 * fbm3(vec3(p.x * 900., p.y * 300., 1.));
+    float brow = smoothstep(taper, taper * .35, abs(p.y - by)) * smoothstep(-.024, -.014, sx) * smoothstep(.043, .03, sx) * face * hairs;
+    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.018, .014, .011), brow * .95);
+    float seam = e.y - .0042 - sx * sx * 2.2 + max(sx - .012, 0.) * .32;
+    float kohl = smoothstep(.0034, .0008, abs(p.y - seam)) * smoothstep(-.02, -.014, sx) * smoothstep(.026, .016, sx) * face;
+    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.012, .01, .01), kohl * .9);
+    // soft shadow in the socket gives the eyes depth
+    float socket = smoothstep(.022, .004, length(vec2(sx * .8, p.y - e.y - .004))) * face;
+    diffuseColor.rgb *= 1. - .28 * socket;
   }
-  // lips
-  float lips = smoothstep(.0085, .003, abs(p.y - (eyeY - .079))) * smoothstep(.026, .014, abs(p.x)) * step(eyeZ + .02, p.z);
-  diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(.8, .58, .56), lips * .5);
+  // lips: fuller colour, darker parting line
+  float lipBand = smoothstep(.0115, .0045, abs(p.y - uLipY)) * smoothstep(.031, .019, abs(p.x)) * step(eyeZ + .015, p.z);
+  diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(.62, .34, .32) + vec3(.015, .0, .0), lipBand * .8);
+  // clean-shaven: only a soft shadow under the lower lip and along the jaw to model the face
+  {
+    float under = smoothstep(.012, .0, abs(p.y - (uLipY - .016))) * smoothstep(.022, .006, abs(p.x)) * step(eyeZ + .01, p.z);
+    diffuseColor.rgb *= 1. - .16 * under;
+  }
   // tripundra: three lines of sacred ash across the forehead
-  float fy = eyeY + .049;
+  float fy = eyeY + .0415;
   float lines = 0.;
-  for (int k = -1; k <= 1; k++) lines = max(lines, smoothstep(.0036, .0018, abs(p.y - fy - float(k) * .0098 + p.x * p.x * 1.4)));
-  lines *= smoothstep(.052, .034, abs(p.x)) * face * (.75 + .25 * fbm3(p * 400.));
+  for (int k = -1; k <= 1; k++) lines = max(lines, smoothstep(.0031, .0015, abs(p.y - fy - float(k) * .0082 + p.x * p.x * 1.4)));
+  lines *= smoothstep(.05, .032, abs(p.x)) * face * (.75 + .25 * fbm3(p * 400.));
   diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.86, .85, .8), lines * .82);
   // the third eye: a vertical mark between the brows
-  vec2 te = vec2(p.x, (p.y - (eyeY + .034)));
-  float third = smoothstep(1., .5, length(te / vec2(.0034, .0105))) * face;
+  vec2 te = vec2(p.x, (p.y - (eyeY + .03)));
+  float third = smoothstep(1., .5, length(te / vec2(.0032, .0098))) * face;
   diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.42, .05, .03), third);
   gThird = third;
   // hair swept back over the scalp into the topknot
@@ -99,9 +111,9 @@ ${NOISE}${TIGER}`)
   if (hm > 0.) {
     vec3 c = p - vec3(0., eyeY + .13, eyeZ - .1);
     float streak = fbm3(vec3(atan(c.x, c.z) * 16., atan(c.y, length(c.xz)) * 16., 2.) * vec3(1., .22, 1.));
-    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.026, .019, .014) * (.4 + 1.4 * streak), hm);
+    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.012, .009, .007) * (.4 + 1.4 * streak), hm);
   }
-  gHair = hm;
+  gHair = max(gHair, hm);
   // loin wrap painted on the body (the simulated panels hang over it)
   float hem = .835 + .012 * sin(atan(p.x, p.z) * 9.) ;
   float cloth = step(hem, p.y) * step(p.y, uWaist) * step(abs(p.x), .3);
@@ -162,3 +174,35 @@ export const serpentMaterial = () => {
   };
   return m;
 };
+
+// Eyes: sclera, amber iris and pupil painted on the eyeball in rest space, gaze lowered.
+export function eyeMaterial(landmarks) {
+  const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.16, metalness: 0.0 });
+  const u = { uEyeL: { value: new THREE.Vector3(...landmarks.eyeL) }, uGlow: { value: 0.0 }, uEmber: { value: new THREE.Color(1.0, 0.5, 0.15) } };
+  m.userData.uniforms = u;
+  m.customProgramCacheKey = () => 'eye';
+  m.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, u);
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vRest;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvRest = position;');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vRest; uniform vec3 uEyeL; uniform float uGlow; uniform vec3 uEmber; float gIris = 0.;')
+      .replace('#include <color_fragment>', `#include <color_fragment>
+{
+  vec3 c = vec3(sign(vRest.x) * uEyeL.x, uEyeL.y, uEyeL.z);
+  vec3 d = normalize(vRest - c);
+  float a = acos(clamp(dot(d, normalize(vec3(0., -.2, 1.))), -1., 1.));
+  vec3 sclera = vec3(.46, .45, .43) * (1. - .5 * smoothstep(.5, 1.3, a));
+  vec3 iris = mix(vec3(.16, .075, .02), vec3(.04, .02, .008), smoothstep(.16, .46, a));
+  iris *= .8 + .4 * fract(sin(atan(d.x, d.y) * 40.) * 43.);
+  vec3 col = mix(iris, sclera, smoothstep(.47, .52, a));
+  col *= 1. - .85 * smoothstep(.5, .44, a) * smoothstep(.36, .5, a);   // limbal ring
+  col = mix(vec3(.004), col, smoothstep(.2, .25, a));                    // pupil
+  diffuseColor.rgb = col;
+  gIris = smoothstep(.5, .44, a) * smoothstep(.2, .26, a);
+}`)
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += uEmber * gIris * uGlow;');
+  };
+  return m;
+}

@@ -2,11 +2,14 @@ import * as THREE from 'three';
 import { Verlet } from './verlet.js';
 import { tubeGeometry } from './fit.js';
 
-// Jata: matted locks. The scalp hair is painted by the skin shader (hairMask); here we
-// add the coiled topknot (rigid on the head bone) and simulated locks that stream from
-// the back and sides of the head.
+// Jata: matted locks, built in three layers so the hair grows out of the head rather than
+// sitting on it:
+//   1. swept-back locks laid over the scalp from the hairline up into the topknot (rigid)
+//   2. the coiled topknot itself (rigid)
+//   3. free locks from the temples, sides and nape that fall past the shoulders (simulated)
+// The skin shader paints the scalp dark underneath (hairMask) so no skin shows between locks.
 
-const LOCKS = 72, POINTS = 12, RADIAL = 6, SUB = 2;
+const LOCKS = 92, POINTS = 12, RADIAL = 6, SUB = 2;
 const RINGS = (POINTS - 1) * SUB + 1;
 
 function ropeNormalMap() {
@@ -28,93 +31,174 @@ function ropeNormalMap() {
   return t;
 }
 
-// CPU mirror of hairMask() in materials.js
-function onScalp(p, eye) {
+// CPU mirror of hairMask() in materials.js: > 0 inside the hair-bearing scalp, ~0 at the hairline
+function scalpDepth(p, eye) {
+  if (Math.abs(p.x) > 0.12 || p.y < eye.y - 0.11) return -1;
+  if (Math.abs(p.x) > 0.066 && p.y < eye.y + 0.034 && p.z > eye.z - 0.14 && p.z < eye.z - 0.05) return -1;
   const drop = THREE.MathUtils.clamp((eye.z - 0.055 - p.z) * 1.5, 0, 0.165);
-  const line = eye.y + 0.072 - drop;
-  if (p.y < line + 0.004 || Math.abs(p.x) > 0.12 || p.y < eye.y - 0.11) return false;
-  if (Math.abs(p.x) > 0.066 && p.y < eye.y + 0.034 && p.z > eye.z - 0.14 && p.z < eye.z - 0.05) return false;
-  return true;
+  const peak = 0.01 * (1 - THREE.MathUtils.smoothstep(Math.abs(p.x), 0, 0.02)); // widow's peak (matches shader)
+  return p.y - (eye.y + 0.064 - drop - peak);
+}
+
+function farthestSample(points, cand, count, first) {
+  const out = [], dist = new Map();
+  let cur = first ?? cand[0];
+  for (let k = 0; k < Math.min(count, cand.length); k++) {
+    out.push(cur);
+    let best = cand[0], bd = -1;
+    for (const i of cand) {
+      const d = Math.min(dist.get(i) ?? Infinity, points[i].distanceToSquared(points[cur]));
+      dist.set(i, d);
+      if (d > bd) { bd = d; best = i; }
+    }
+    cur = best;
+  }
+  return out;
+}
+
+function mergeGeometries(list) {
+  let nv = 0, ni = 0;
+  for (const g of list) { nv += g.attributes.position.count; ni += g.index.count; }
+  const pos = new Float32Array(nv * 3), nor = new Float32Array(nv * 3), uv = new Float32Array(nv * 2), idx = new Uint32Array(ni);
+  let vo = 0, io = 0;
+  for (const g of list) {
+    pos.set(g.attributes.position.array, vo * 3); nor.set(g.attributes.normal.array, vo * 3); uv.set(g.attributes.uv.array, vo * 2);
+    const gi = g.index.array;
+    for (let i = 0; i < gi.length; i++) idx[io + i] = gi[i] + vo;
+    vo += g.attributes.position.count; io += gi.length;
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  out.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  out.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  out.setIndex(new THREE.BufferAttribute(idx, 1));
+  return out;
 }
 
 export function createHair(character, colliders, { material } = {}) {
   const { body } = character;
   const head = body.byName.head;
   const headPos = head.userData.head;
-  const eye = new THREE.Vector3(...body.meta.landmarks.eyeL);
+  const eye = new THREE.Vector3(...body.meta.landmarks.eyeL).setX(0);
   const normalMap = ropeNormalMap();
-  const mat = material ?? new THREE.MeshPhysicalMaterial({ color: 0x120c08, roughness: 0.68, metalness: 0.0, specularIntensity: 0.3, normalMap, normalScale: new THREE.Vector2(0.8, 0.8) });
+  const mat = material ?? new THREE.MeshPhysicalMaterial({ color: 0x0a0705, roughness: 0.58, metalness: 0.0, specularIntensity: 0.085, specularColor: new THREE.Color(1.0, 0.8, 0.55), normalMap, normalScale: new THREE.Vector2(0.9, 0.9) });
+  const rnd = mulberry(7);
 
   // ---- scalp samples from the body mesh
   const bp = body.geometries.body.attributes.position, bn = body.geometries.body.attributes.normal;
-  const scalpPts = [], scalpNrm = [];
+  const scalpPts = [], scalpNrm = [], depth = [];
   const crown = new THREE.Vector3(0, -Infinity, 0);
   const p = new THREE.Vector3();
   for (let i = 0; i < bp.count; i++) {
     p.fromBufferAttribute(bp, i);
     if (p.y < eye.y - 0.12) continue;
     if (p.y > crown.y) crown.copy(p);
-    if (!onScalp(p, eye)) continue;
+    const d = scalpDepth(p, eye);
+    if (d < 0.002) continue;
     scalpPts.push(p.clone());
     scalpNrm.push(new THREE.Vector3().fromBufferAttribute(bn, i).normalize());
+    depth.push(d);
   }
+  const C = new THREE.Vector3(0, eye.y + 0.035, eye.z - 0.1);          // skull centre
+  const scalpDir = scalpPts.map((q) => q.clone().sub(C).normalize());
+  const scalpRad = scalpPts.map((q) => q.distanceTo(C));
+  const radiusAlong = (dir) => { let best = -2, r = 0.1; for (let i = 0; i < scalpDir.length; i++) { const d = scalpDir[i].dot(dir); if (d > best) { best = d; r = scalpRad[i]; } } return r; };
 
-  // ---- topknot: one thick rope of hair wound into a tapering spiral
+  // ---- topknot: one thick rope of hair wound into a tall tapering pile
   const knot = new THREE.Group();
   {
     const pts = [], radii = [];
-    const N = 90, turns = 3.4;
+    const N = 110, turns = 4.1;
     for (let i = 0; i <= N; i++) {
       const t = i / N, a = t * turns * Math.PI * 2;
-      const R = 0.05 * (1 - t * 0.82) + 0.004, y = 0.006 + t * 0.118 + 0.004 * Math.sin(a * 2.0);
+      const R = 0.056 * (1 - t * 0.8) + 0.004, y = 0.004 + t * 0.15 + 0.005 * Math.sin(a * 2.0);
       pts.push(new THREE.Vector3(Math.cos(a) * R, y, Math.sin(a) * R));
-      radii.push(0.026 * (1 - t * 0.42) * (i === 0 ? 0.6 : 1) * (t > 0.96 ? 1 - (t - 0.96) * 12 : 1));
+      radii.push(0.03 * (1 - t * 0.42) * (i === 0 ? 0.6 : 1) * (t > 0.96 ? 1 - (t - 0.96) * 12 : 1) * (1 + 0.1 * Math.sin(a * 3.3)));
     }
-    const g = tubeGeometry(pts, radii, 9);
+    const g = tubeGeometry(pts, radii, 10);
     const uv = g.attributes.uv;
     for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 0.9, uv.getY(i) * 0.5);
     const coil = new THREE.Mesh(g, mat);
     coil.castShadow = true;
     knot.add(coil);
-    // base band gathering the hair
-    const band = new THREE.Mesh(new THREE.TorusGeometry(0.056, 0.02, 8, 26), mat);
-    band.rotation.x = Math.PI / 2; band.position.y = -0.006; band.scale.set(1, 1, 0.8);
-    knot.add(band);
+    // a few stray loops escaping the pile
+    const strays = [];
+    for (let k = 0; k < 7; k++) {
+      const a0 = rnd() * 6.28, y0 = 0.02 + rnd() * 0.1, sp = [], sr = [];
+      for (let i = 0; i <= 10; i++) {
+        const t = i / 10, a = a0 + t * (1.2 + rnd() * 0.4), R = (0.05 - y0 * 0.2) + 0.03 * Math.sin(t * Math.PI);
+        sp.push(new THREE.Vector3(Math.cos(a) * R, y0 + 0.03 * Math.sin(t * Math.PI) * (k % 2 ? 1 : -0.4), Math.sin(a) * R));
+        sr.push(0.0045 * (0.4 + 0.6 * Math.sin(t * Math.PI)));
+      }
+      strays.push(tubeGeometry(sp, sr, 5));
+    }
+    const stray = new THREE.Mesh(mergeGeometries(strays), mat);
+    stray.castShadow = true;
+    knot.add(stray);
   }
-  knot.position.copy(crown).sub(headPos).add(new THREE.Vector3(0, -0.012, -0.03));
+  const knotBase = crown.clone().add(new THREE.Vector3(0, -0.02, -0.032));
+  knot.position.copy(knotBase).sub(headPos);
   knot.rotation.x = -0.2;
   head.add(knot);
 
-  // ---- free locks: roots are a farthest-point sample of the back / sides / nape
-  const cand = [];
-  scalpPts.forEach((q, i) => { if (q.z < eye.z - 0.085 && q.y < crown.y - 0.03) cand.push(i); });
-  const roots = [];
-  let cur = cand.reduce((b, i) => (scalpPts[i].y < scalpPts[b].y ? i : b), cand[0]);
-  const dist = new Float32Array(scalpPts.length).fill(Infinity);
-  for (let k = 0; k < LOCKS; k++) {
-    roots.push(cur);
-    let best = cand[0], bd = -1;
-    for (const i of cand) {
-      const d = scalpPts[i].distanceToSquared(scalpPts[cur]);
-      if (d < dist[i]) dist[i] = d;
-      if (dist[i] > bd) { bd = dist[i]; best = i; }
+  // ---- swept-back locks over the scalp: every lock starts fine at the hairline, thickens,
+  // and runs over the skull into the base of the topknot
+  {
+    const all = scalpPts.map((_, i) => i);
+    const line = all.filter((i) => depth[i] < 0.011);
+    const inner = all.filter((i) => depth[i] >= 0.011 && scalpPts[i].distanceTo(knotBase) > 0.05);
+    const starts = [...farthestSample(scalpPts, line, 60), ...farthestSample(scalpPts, inner, 70)];
+    const dk = knotBase.clone().sub(C).normalize(), rk = knotBase.distanceTo(C);
+    const tubes = [];
+    const d = new THREE.Vector3(), side = new THREE.Vector3();
+    for (const si of starts) {
+      const ds = scalpDir[si], thick = 0.0065 + rnd() * 0.0045, wob = (rnd() - 0.5) * 0.02, ph = rnd() * 6.28;
+      const ang = ds.angleTo(dk);
+      const n = Math.max(5, Math.round(ang / 0.17) + 3);
+      const pts = [], radii = [];
+      side.crossVectors(ds, dk).normalize();
+      for (let j = 0; j <= n; j++) {
+        const t = j / n;
+        d.copy(ds).lerp(dk, t).normalize();                                   // great-arc towards the knot
+        d.addScaledVector(side, Math.sin(t * Math.PI) * wob + 0.012 * t * Math.sin(t * 9 + ph)).normalize();
+        // roots sit just under the skin so no cut ends show along the hairline
+        const r = THREE.MathUtils.lerp(radiusAlong(d), rk, t * t) - 0.004 + (0.004 + thick) * Math.sin(Math.min(1, t * 2.2) * Math.PI * 0.5);
+        pts.push(C.clone().addScaledVector(d, r).sub(headPos));
+        radii.push(thick * (0.92 + 0.08 * THREE.MathUtils.smoothstep(t, 0, 0.25)) * (1 + 0.14 * Math.sin(j * 2.1 + ph)));
+      }
+      const g = tubeGeometry(pts, radii, 5);
+      const uv = g.attributes.uv;
+      for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 0.7 + ph, uv.getY(i) * 1.3);
+      tubes.push(g);
     }
-    cur = best;
+    const cap = new THREE.Mesh(mergeGeometries(tubes), mat);
+    cap.castShadow = true;
+    head.add(cap);
   }
 
-  const sim = new Verlet(LOCKS * POINTS);
+  // ---- free locks: temples, sides and nape
+  const cand = [];
+  scalpPts.forEach((q, i) => {
+    const back = q.z < eye.z - 0.085, temple = Math.abs(q.x) > 0.062 && q.z < eye.z - 0.062;
+    if ((back || temple) && q.y < crown.y - 0.03) cand.push(i);
+  });
+  const roots = farthestSample(scalpPts, cand, LOCKS, cand.reduce((b, i) => (scalpPts[i].y < scalpPts[b].y ? i : b), cand[0]));
+  const NL = roots.length;
+
+  const sim = new Verlet(NL * POINTS);
   sim.iterations = 3;
   sim.substeps = 2;
   sim.colliders = colliders;
-  const rnd = mulberry(7);
   const lockInfo = [];
   roots.forEach((ri, l) => {
     const root = scalpPts[ri], nrm = scalpNrm[ri];
     const low = THREE.MathUtils.clamp((crown.y - root.y) / 0.17, 0, 1);
-    const dir = nrm.clone().multiplyScalar(0.8).add(new THREE.Vector3(Math.sign(root.x) * 0.12, -0.5, -0.45)).normalize();
-    const length = 0.26 + rnd() * 0.2 + low * 0.26;
+    const front = THREE.MathUtils.smoothstep(root.z, eye.z - 0.1, eye.z - 0.05);        // 1 at the temples
+    const dir = nrm.clone().multiplyScalar(0.8 - 0.3 * front)
+      .add(new THREE.Vector3(Math.sign(root.x) * (0.12 + 0.2 * front), -0.5 - 0.45 * front, -0.45 + 0.6 * front)).normalize();
+    const length = 0.28 + rnd() * 0.2 + low * 0.26 + front * 0.1;
     const seg = length / (POINTS - 1);
-    const thick = 0.0056 + rnd() * 0.0054;
+    const thick = 0.006 + rnd() * 0.006;
     lockInfo.push({ thick, seed: rnd(), wave: 0.006 + rnd() * 0.012, freq: 1.4 + rnd() * 1.6 });
     for (let j = 0; j < POINTS; j++) {
       const i = l * POINTS + j;
@@ -123,12 +207,12 @@ export function createHair(character, colliders, { material } = {}) {
       sim.pos[i * 3 + 2] = root.z + dir.z * seg * j - nrm.z * 0.004;
       sim.radius[i] = thick * 0.8 + 0.004;
       sim.drag[i] = 0.02 + 0.014 * (j / POINTS);
-      sim.windK[i] = 0.3 + 0.7 * (j / (POINTS - 1));
+      sim.windK[i] = (0.3 + 0.7 * (j / (POINTS - 1))) * (1 - 0.35 * front);
       if (j > 0) sim.link(i - 1, i, 1, seg);
       if (j > 1) sim.link(i - 2, i, 0.07, seg * 2); // slight bending resistance
     }
   });
-  for (let l = 0; l < LOCKS; l++) {
+  for (let l = 0; l < NL; l++) {
     sim.pin(l * POINTS, head);
     sim.target(l * POINTS + 1, head, 0.55);
     sim.target(l * POINTS + 2, head, 0.14);
@@ -138,10 +222,10 @@ export function createHair(character, colliders, { material } = {}) {
 
   // ---- tube mesh (Catmull-Rom smoothed, with a rest wave so locks are never ruler-straight)
   const ring = RADIAL + 1;
-  const vcount = LOCKS * RINGS * ring;
+  const vcount = NL * RINGS * ring;
   const pos = new Float32Array(vcount * 3), nor = new Float32Array(vcount * 3), uvs = new Float32Array(vcount * 2);
   const idx = [];
-  for (let l = 0; l < LOCKS; l++) for (let j = 0; j < RINGS; j++) for (let r = 0; r < ring; r++) {
+  for (let l = 0; l < NL; l++) for (let j = 0; j < RINGS; j++) for (let r = 0; r < ring; r++) {
     const v = (l * RINGS + j) * ring + r;
     uvs[v * 2] = (r / RADIAL) * 2 + lockInfo[l].seed; uvs[v * 2 + 1] = j * 0.33 + lockInfo[l].seed * 5;
     if (j < RINGS - 1 && r < RADIAL) { const a = v, b = v + 1, c = v + ring, d = v + ring + 1; idx.push(a, c, b, b, c, d); }
@@ -163,7 +247,7 @@ export function createHair(character, colliders, { material } = {}) {
   const cr = (a, b, c, d, t) => 0.5 * ((2 * b) + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t * t + (-a + 3 * b - 3 * c + d) * t * t * t);
   const rebuild = () => {
     const P = sim.pos;
-    for (let l = 0; l < LOCKS; l++) {
+    for (let l = 0; l < NL; l++) {
       const info = lockInfo[l], o = l * POINTS;
       for (let j = 0; j < RINGS; j++) {
         const s = Math.min(Math.floor(j / SUB), POINTS - 2), t = j / SUB - s;

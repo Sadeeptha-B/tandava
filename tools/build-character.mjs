@@ -12,6 +12,7 @@ const OUT = join(ROOT, 'public', 'assets');
 
 // ---------------------------------------------------------------- recipe
 const MUSCLE = 0.85; // 0 = average, 1 = MakeHuman "max muscle"
+const EYES_CLOSED = 0.94; // rest state: lids lowered in meditation (the eyesOpen morph raises them)
 const TARGETS = {
   'universal-male-young-averagemuscle-averageweight': 1 - MUSCLE,
   'universal-male-young-maxmuscle-averageweight': MUSCLE,
@@ -23,13 +24,43 @@ const TARGETS = {
   'torso-vshape-incr': 0.45,
   'torso-muscle-pectoral-incr': 0.25,
   'stomach-tone-incr': 0.8,
-  'eye-left-closure': 0.86,
-  'eye-right-closure': 0.86,
-  'mouth-corner-puller': 0.1,
-  'chin-bones-incr': 0.3,
-  'l-cheek-bones-incr': 0.3,
-  'r-cheek-bones-incr': 0.3,
-  'nose-scale-vert-incr': 0.15,
+  'eye-left-closure': EYES_CLOSED,
+  'eye-right-closure': EYES_CLOSED,
+  // face: an idealised, sculptural head – oval, high cheekbones, long straight nose, full bowed lips, long eyes
+  'head-oval': 0.5,
+  'head-fat-decr': 0.35,
+  'forehead-scale-vert-decr': 0.6,
+  'chin-bones-incr': 0.35,
+  'chin-prominent-incr': 0.25,
+  'chin-width-decr': 0.25,
+  'l-cheek-bones-incr': 0.6,
+  'r-cheek-bones-incr': 0.6,
+  'l-cheek-volume-decr': 0.45,
+  'r-cheek-volume-decr': 0.45,
+  'nose-scale-vert-incr': 0.2,
+  'nose-greek-incr': 0.5,
+  'nose-scale-depth-incr': 0.3,
+  'nose-point-down': 0.25,
+  'nose-width2-decr': 0.3,
+  'mouth-cupidsbow-incr': 0.6,
+  'mouth-lowerlip-volume-incr': 0.5,
+  'mouth-upperlip-volume-incr': 0.35,
+  'mouth-angles-up': 0.35,
+  'l-eye-corner2-up': 0.35,
+  'r-eye-corner2-up': 0.35,
+  'l-eye-scale-incr': 0.3,
+  'r-eye-scale-incr': 0.3,
+  'eyebrows-angle-up': 0.3,
+  'eyebrows-trans-down': 0.35,
+};
+// runtime facial morphs: weighted sums of MakeHuman expression units (sparse deltas in the asset)
+const MORPHS = {
+  eyesOpen: { 'eye-left-closure': -0.8, 'eye-right-closure': -0.8 },
+  smile: { 'mouth-corner-puller': 0.7, 'mouth-elevation': 0.2, 'eye-left-slit': 0.25, 'eye-right-slit': 0.25 },
+  browDown: { 'eyebrows-left-down': 1, 'eyebrows-right-down': 1 },
+  browInnerUp: { 'eyebrows-left-inner-up': 1, 'eyebrows-right-inner-up': 1 },
+  browOuterUp: { 'eyebrows-left-extern-up': 1, 'eyebrows-right-extern-up': 1 },
+  lipsPart: { 'mouth-parling': 1 },
 };
 const HEIGHT = 1.84; // metres, final stature
 
@@ -53,17 +84,17 @@ const groups = {}; // name -> faces (arrays of vertex indices)
 const NV0 = V.length / 3;
 
 // ---------------------------------------------------------------- targets
-for (const [name, w] of Object.entries(TARGETS)) {
-  if (!w) continue;
+const addTarget = (out, name, w) => {
   for (const l of readFileSync(join(SRC, 'targets', name + '.target'), 'utf8').split(/\r?\n/)) {
     if (!l || l[0] === '#') continue;
     const p = l.split(/\s+/);
     const i = +p[0] * 3;
-    V[i] += w * +p[1];
-    V[i + 1] += w * +p[2];
-    V[i + 2] += w * +p[3];
+    out[i] += w * +p[1];
+    out[i + 1] += w * +p[2];
+    out[i + 2] += w * +p[3];
   }
-}
+};
+for (const [name, w] of Object.entries(TARGETS)) if (w) addTarget(V, name, w);
 
 // ---------------------------------------------------------------- normalise to metres, feet on y=0
 const bodyFaces = groups['body'];
@@ -78,6 +109,14 @@ for (let i = 0; i < NV0; i++) {
   V[i * 3] *= S;
   V[i * 3 + 1] = (V[i * 3 + 1] - minY) * S;
   V[i * 3 + 2] *= S;
+}
+
+// morph deltas on the base mesh, in final units
+const morphSrc = {};
+for (const [name, mix] of Object.entries(MORPHS)) {
+  const d = new Float64Array(NV0 * 3);
+  for (const [t, w] of Object.entries(mix)) addTarget(d, t, w * S);
+  morphSrc[name] = d;
 }
 
 // ---------------------------------------------------------------- skeleton
@@ -230,7 +269,7 @@ function subdivide(nVerts, faces) {
   return { combos, faces: out };
 }
 
-function buildPart(faces, levels) {
+function buildPart(faces, levels, extras = []) {
   // compact the vertex set
   const remap = new Map();
   const src = [];
@@ -240,9 +279,12 @@ function buildPart(faces, levels) {
   }));
   let pos = src.map((v) => [V[v * 3], V[v * 3 + 1], V[v * 3 + 2]]);
   let wts = src.map((v) => vw[v]);
+  // extra per-vertex vectors (morph deltas) ride through the same subdivision weights
+  let ext = extras.map((arr) => src.map((v) => [arr[v * 3], arr[v * 3 + 1], arr[v * 3 + 2]]));
   for (let l = 0; l < levels; l++) {
     const { combos, faces: nf } = subdivide(pos.length, quads);
     const np = [], nw = [];
+    ext = ext.map((e) => combos.map((m) => { const p = [0, 0, 0]; for (const [i, c] of m) { p[0] += c * e[i][0]; p[1] += c * e[i][1]; p[2] += c * e[i][2]; } return p; }));
     for (const m of combos) {
       const p = [0, 0, 0];
       const w = new Map();
@@ -254,10 +296,10 @@ function buildPart(faces, levels) {
     }
     pos = np; wts = nw; quads = nf;
   }
-  return { pos, wts, quads };
+  return { pos, wts, quads, ext };
 }
 
-const body = buildPart(bodyFaces, 1);
+const body = buildPart(bodyFaces, 1, Object.values(morphSrc));
 const eyes = buildPart([...groups['helper-l-eye'], ...groups['helper-r-eye']], 1);
 const scalp = buildPart(groups['helper-hair'], 1);
 
@@ -350,9 +392,28 @@ for (const [name, p] of Object.entries(packed)) {
     offset += buf.length;
   }
 }
+meta.morphs = {};
+Object.keys(MORPHS).forEach((name, k) => {
+  const idx = [], del = [];
+  body.ext[k].forEach((d, i) => { if (Math.hypot(d[0], d[1], d[2]) > 2e-5) { idx.push(i); del.push(d[0], d[1], d[2]); } });
+  const put = (arr) => {
+    const buf = Buffer.from(arr.buffer, arr.byteOffset, arr.byteLength);
+    const pad = (4 - (offset % 4)) % 4;
+    if (pad) { chunks.push(Buffer.alloc(pad)); offset += pad; }
+    const at = { offset, length: arr.length };
+    chunks.push(buf); offset += buf.length;
+    return at;
+  };
+  meta.morphs[name] = { index: put(new Uint32Array(idx)), delta: put(new Float32Array(del)) };
+  console.log('morph %s: %d verts', name, idx.length);
+});
+const J = (bone, end = 'head') => joint(sk.bones[bone][end]).map((x) => +x.toFixed(5));
 meta.landmarks = {
-  eyeL: joint(sk.bones['eye.L'].head), eyeR: joint(sk.bones['eye.R'].head),
+  eyeL: J('eye.L'), eyeR: J('eye.R'),
+  jaw: J('jaw'), chin: J('jaw', 'tail'), lipUpper: J('oris05', 'tail'), lipLower: J('oris01', 'tail'),
+  mouthCornerL: J('oris03.L', 'tail'), noseTip: J('special03', 'tail'),
 };
+console.log('landmarks', JSON.stringify(meta.landmarks));
 mkdirSync(OUT, { recursive: true });
 writeFileSync(join(OUT, 'shiva.bin'), Buffer.concat(chunks));
 writeFileSync(join(OUT, 'shiva.json'), JSON.stringify(meta));

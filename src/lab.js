@@ -35,8 +35,11 @@ const setView = (name, w, h) => {
   const half = 1.3 / zoom, aspect = w / h;
   camera.left = -half * aspect; camera.right = half * aspect; camera.top = half; camera.bottom = -half;
   camera.updateProjectionMatrix();
-  camera.position.set(cx + v[0], cy + v[1], v[2]);
-  camera.lookAt(cx, cy, 0);
+  // ?follow keeps the head centred (for reviewing the face through the dance)
+  let fx = cx, fy = cy, fz = 0;
+  if (q.get('follow') !== null) { const h = new THREE.Vector3().setFromMatrixPosition(character.body.byName.head.matrixWorld); fx = h.x; fy = h.y + 0.07; fz = h.z; }
+  camera.position.set(fx + v[0], fy + v[1], fz + v[2]);
+  camera.lookAt(fx, fy, fz);
 };
 
 const beatToTime = (b) => b * character.choreo.beat;

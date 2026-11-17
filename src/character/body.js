@@ -22,6 +22,23 @@ export async function loadBody(base = './assets/') {
     return g;
   };
 
+  // sparse facial morphs -> relative morph targets on the body geometry
+  const bodyGeometry = geometry(meta.parts.body);
+  const morphNames = Object.keys(meta.morphs ?? {});
+  if (morphNames.length) {
+    const count = bodyGeometry.attributes.position.count;
+    bodyGeometry.morphAttributes.position = morphNames.map((name) => {
+      const m = meta.morphs[name];
+      const idx = new Uint32Array(bin, m.index.offset, m.index.length), del = new Float32Array(bin, m.delta.offset, m.delta.length);
+      const arr = new Float32Array(count * 3);
+      for (let i = 0; i < idx.length; i++) arr.set(del.subarray(i * 3, i * 3 + 3), idx[i] * 3);
+      const attr = new THREE.BufferAttribute(arr, 3);
+      attr.name = name;
+      return attr;
+    });
+    bodyGeometry.morphTargetsRelative = true;
+  }
+
   const bones = meta.bones.map((b) => {
     const bone = new THREE.Bone();
     bone.name = b.name;
@@ -42,7 +59,7 @@ export async function loadBody(base = './assets/') {
 
   return {
     meta, root, bones, byName, skeleton,
-    geometries: { body: geometry(meta.parts.body), eyes: geometry(meta.parts.eyes), scalp: geometry(meta.parts.scalp, false) },
+    geometries: { body: bodyGeometry, eyes: geometry(meta.parts.eyes), scalp: geometry(meta.parts.scalp, false) },
   };
 }
 

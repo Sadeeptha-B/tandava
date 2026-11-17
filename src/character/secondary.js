@@ -3,7 +3,8 @@ import { Collider } from './verlet.js';
 import { createHair } from './hair.js';
 import { createGarment } from './garment.js';
 import { createOrnaments } from './ornaments.js';
-import { skinMaterial } from './materials.js';
+import { skinMaterial, eyeMaterial } from './materials.js';
+import { createFace } from './face.js';
 
 // Dresses the dancer: skin, hair, garment, ornaments – and wires their simulations
 // (hair locks, cloth, bead mala) to the skeleton, with a wind field driven by the dance.
@@ -35,15 +36,19 @@ export function attachSecondary(character, opts = {}) {
   const beltY = B.hips.userData.head.y + 0.046;
   const skin = skinMaterial(body.meta.landmarks, beltY + 0.006);
   if (!opts.plainBody) character.mesh.material = skin;
+  const eyeMat = eyeMaterial(body.meta.landmarks);
+  character.eyes.material = eyeMat;
+  const face = createFace(character);
   character.mesh.castShadow = true;
   character.mesh.receiveShadow = true;
 
-  const hair = createHair(character, [headC, neckC, torsoC, shouldersC, ...arms]);
+  const hair = createHair(character, [headC, neckC, torsoC, shouldersC, ...chest.slice(0, 4), ...arms]);
   const garment = createGarment(character, [pelvisC, ...legs, bellyC], beltY);
   const ornaments = createOrnaments(character, [torsoC, ...chest, neckC]);
 
   // crescent moon tucked into the topknot
-  ornaments.moon.position.set(0.05, 0.035, 0.045);
+  ornaments.moon.position.set(0.058, 0.05, 0.052);
+  ornaments.moon.scale.setScalar(0.82);
   ornaments.moon.rotation.set(-0.1, 0.5, -0.5);
   hair.knot.add(ornaments.moon);
 
@@ -84,6 +89,6 @@ export function attachSecondary(character, opts = {}) {
     },
     reset() { state.gust = 0; },
   };
-  character.systems.push(driver, hair, garment, ...ornaments.systems);
-  return { hair, garment, ornaments, skin, wind: state };
+  character.systems.push(driver, face, hair, garment, ...ornaments.systems);
+  return { hair, garment, ornaments, skin, eyeMat, face, wind: state };
 }

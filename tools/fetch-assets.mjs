@@ -39,6 +39,21 @@ const FILES = [
     'chin/chin-prominent-incr',
     'cheek/l-cheek-bones-incr',
     'cheek/r-cheek-bones-incr',
+    // face sculpt
+    'cheek/l-cheek-volume-decr', 'cheek/r-cheek-volume-decr',
+    'forehead/forehead-scale-vert-decr',
+    'head/head-oval', 'head/head-fat-decr',
+    'nose/nose-greek-incr', 'nose/nose-scale-depth-incr', 'nose/nose-point-down', 'nose/nose-width2-decr',
+    'mouth/mouth-cupidsbow-incr', 'mouth/mouth-lowerlip-volume-incr', 'mouth/mouth-upperlip-volume-incr', 'mouth/mouth-angles-up', 'mouth/mouth-scale-horiz-incr',
+    'eyes/l-eye-corner2-up', 'eyes/r-eye-corner2-up', 'eyes/l-eye-scale-incr', 'eyes/r-eye-scale-incr',
+    'eyebrows/eyebrows-angle-up', 'eyebrows/eyebrows-trans-down',
+    'chin/chin-width-decr',
+    // expression units (runtime morphs)
+    'expression/units/caucasian/eyebrows-left-down', 'expression/units/caucasian/eyebrows-right-down',
+    'expression/units/caucasian/eyebrows-left-inner-up', 'expression/units/caucasian/eyebrows-right-inner-up',
+    'expression/units/caucasian/eyebrows-left-extern-up', 'expression/units/caucasian/eyebrows-right-extern-up',
+    'expression/units/caucasian/eye-left-slit', 'expression/units/caucasian/eye-right-slit',
+    'expression/units/caucasian/mouth-parling', 'expression/units/caucasian/mouth-elevation',
   ].map((t) => [T + t + '.target', 'targets/' + t.split('/').pop() + '.target']),
 ];
 

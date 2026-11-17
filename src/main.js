@@ -44,7 +44,7 @@ async function start() {
   }
   renderer.toneMapping = THREE.NoToneMapping;
   renderer.shadowMap.enabled = quality !== 'low';
-  renderer.shadowMap.type = THREE.VSMShadowMap;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
   const basePR = Math.min(window.devicePixelRatio || 1, quality === 'high' ? 1.5 : quality === 'medium' ? 1.25 : 1);
   let prScale = 1;
 
@@ -81,7 +81,7 @@ async function start() {
   shaft.castShadow = quality !== 'low';
   shaft.shadow.mapSize.setScalar(quality === 'high' ? 2048 : 1024);
   shaft.shadow.camera.near = 6; shaft.shadow.camera.far = 16;
-  shaft.shadow.bias = -0.0004; shaft.shadow.normalBias = 0.03; shaft.shadow.radius = 5; shaft.shadow.blurSamples = 12;
+  shaft.shadow.bias = -0.0003; shaft.shadow.normalBias = 0.035; shaft.shadow.focus = 0.72; shaft.shadow.radius = 4;
   const flameLight = new THREE.PointLight(0xffffff, 3, 6, 2);
   const impactLight = new THREE.PointLight(0xffffff, 0, 10, 2);
   scene.add(hemi, key, fill, back, ...rims, shaft, shaft.target, flameLight, impactLight);
@@ -145,6 +145,8 @@ async function start() {
     impactLight.color.copy(P.shock); impactLight.intensity = impactLight.userData.v * 4.5;
     dress.skin.userData.uniforms.uThirdEye.value = 0.2 + 0.7 * I + pulse * 0.8;
     dress.skin.userData.uniforms.uEmber.value.copy(P.flame);
+    dress.eyeMat.userData.uniforms.uGlow.value = 0.03 * I + pulse * 0.1;
+    dress.eyeMat.userData.uniforms.uEmber.value.copy(P.flame);
 
     rig.update(time, dt, performer);
     flash *= Math.exp(-dt * 4.5);
@@ -220,6 +222,13 @@ async function start() {
     for (let t = t0; t < t1 - 1e-6; t += 1 / 60) step(1 / 60);
     rig.snap();
     step(1e-4);
+    if (q.get('focus') === 'head') {
+      // dev: portrait framing on the face
+      const h = new THREE.Vector3().setFromMatrixPosition(character.body.byName.head.matrixWorld);
+      const d = +(q.get('dist') ?? 1.15);
+      camera.position.set(h.x + d * 0.28, h.y + 0.1, h.z + d);
+      camera.lookAt(h.x, h.y + 0.08, h.z);
+    }
     post.grade.uniforms.uFade.value = 1;
     post.render(0);
     return `beat ${performer.beatPos.toFixed(2)} particles ${particles.alive}`;
