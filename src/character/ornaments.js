@@ -152,27 +152,54 @@ export function createOrnaments(character, colliders) {
   }
 
   // ---- simulated strands resting on the chest: a long rudraksha mala and a shorter string of pearls
-  const strand = ({ NB, drop, fwd, spread = 0.062, back = 0.05, r = 0.0078, pendant = true, material = beadMat }) => {
+  const skin = colliders.find((c) => c.restPushOut);
+  // even arc-length resampling of a polyline to m points
+  const resample = (pts, m) => {
+    const cum = [0];
+    for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + pts[i].distanceTo(pts[i - 1]));
+    const L = cum[cum.length - 1], res = [];
+    for (let k = 0, j = 0; k < m; k++) {
+      const s = (L * k) / (m - 1);
+      while (j < pts.length - 2 && cum[j + 1] < s) j++;
+      res.push(new THREE.Vector3().lerpVectors(pts[j], pts[j + 1], Math.min(1, (s - cum[j]) / (cum[j + 1] - cum[j] || 1))));
+    }
+    return { pts: res, L };
+  };
+  // NB beads, or (with `gap`) as many as fit at that spacing in bead diameters
+  const strand = ({ NB = 0, gap = 0, drop, fwd, spread = 0.062, back = 0.05, r = 0.0078, pendant = true, material = beadMat, slack = 1.03, hold = 0.004 }) => {
     const chest = B.spine01;
     const nk = head('neck01');
+    const pad = r + 0.004; // rests on the skin, clear of the sash where they cross
+    const a = new THREE.Vector3(nk.x - spread, nk.y - 0.012, nk.z - back), b = new THREE.Vector3(nk.x + spread, nk.y - 0.012, nk.z - back);
+    // U-shaped loop draped forward over the collarbones...
+    let path = [];
+    for (let i = 0, M = 120; i < M; i++) {
+      const t = i / (M - 1), ang = t * Math.PI;
+      const x = a.x + (b.x - a.x) * (0.5 - 0.5 * Math.cos(ang)) + Math.sign(t - 0.5) * 0.045 * Math.sin(ang);
+      const y = a.y - drop * Math.pow(Math.sin(ang), 0.8);
+      const z = a.z + fwd * Math.pow(Math.sin(ang), 0.45);
+      path.push(new THREE.Vector3(x, y, z));
+    }
+    // ...then laid onto the rest-pose skin, so the string is long enough to go over the chest
+    // rather than being measured along a chord through it
+    if (skin) for (let pass = 0; pass < 3; pass++) path = resample(path.map((p, i) => (i === 0 || i === path.length - 1 ? p : skin.restPushOut(p, pad))), path.length).pts;
+    if (gap) NB = Math.round(resample(path, path.length).L / (2 * r * gap)) + 1;
+    const beads = resample(path, NB).pts;
     const sim = new Verlet(NB);
     sim.iterations = 6;
     sim.substeps = 2;
     sim.colliders = colliders;
-    const a = new THREE.Vector3(nk.x - spread, nk.y - 0.012, nk.z - back), b = new THREE.Vector3(nk.x + spread, nk.y - 0.012, nk.z - back);
     for (let i = 0; i < NB; i++) {
-      const t = i / (NB - 1), ang = t * Math.PI;
-      // U-shaped loop draped forward over the collarbones
-      const x = a.x + (b.x - a.x) * (0.5 - 0.5 * Math.cos(ang)) + Math.sign(t - 0.5) * 0.045 * Math.sin(ang);
-      const y = a.y - drop * Math.pow(Math.sin(ang), 0.8);
-      const z = a.z + fwd * Math.pow(Math.sin(ang), 0.45);
-      sim.pos[i * 3] = x; sim.pos[i * 3 + 1] = y; sim.pos[i * 3 + 2] = z;
-      sim.radius[i] = r + 0.003;
+      beads[i].toArray(sim.pos, i * 3);
+      sim.radius[i] = pad;
       sim.drag[i] = 0.035;
       sim.windK[i] = 0.05;
     }
-    for (let i = 1; i < NB; i++) sim.link(i - 1, i, 1);
+    for (let i = 1; i < NB; i++) sim.link(i - 1, i, 1, beads[i].distanceTo(beads[i - 1]) * slack);
     sim.pin(0, chest); sim.pin(NB - 1, chest);
+    // a weak pull towards the draped shape: the strand still swings and sags, but the spin and the
+    // leap can no longer fling it over the shoulders to hang down the back
+    for (let i = 1; i < NB - 1; i++) sim.target(i, chest, hold);
     sim.bindRest(() => chest);
     const im = new THREE.InstancedMesh(beadGeo, material, NB + 1);
     im.frustumCulled = false;
@@ -197,7 +224,7 @@ export function createOrnaments(character, colliders) {
     return sim;
   };
   out.mala = strand({ NB: 44, drop: 0.3, fwd: 0.225 });
-  out.pearls = strand({ NB: 46, drop: 0.165, fwd: 0.16, spread: 0.07, back: 0.035, r: 0.0058, pendant: false, material: pearl() });
+  out.pearls = strand({ gap: 1.0, drop: 0.12, fwd: 0.15, spread: 0.07, back: 0.035, r: 0.0058, pendant: false, material: pearl() });
 
   // ---- damaru in the rear right hand
   {

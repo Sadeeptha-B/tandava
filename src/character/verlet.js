@@ -148,6 +148,7 @@ export class Verlet {
   _collide() {
     const { pos, n, invMass, radius } = this;
     for (const c of this.colliders) {
+      if (c.collide) { c.collide(this); continue; } // e.g. SurfaceCollider
       const ax = c.ca.x, ay = c.ca.y, az = c.ca.z;
       const bx = c.cb.x - ax, by = c.cb.y - ay, bz = c.cb.z - az;
       const len2 = bx * bx + by * by + bz * bz;

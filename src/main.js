@@ -226,13 +226,14 @@ async function start() {
     for (let t = t0; t < t1 - 1e-6; t += 1 / 60) step(1 / 60);
     rig.snap();
     step(1e-4);
-    if (q.get('focus') === 'head') {
-      // dev: portrait framing on the face
-      const h = new THREE.Vector3().setFromMatrixPosition(character.body.byName.head.matrixWorld);
+    if (q.get('focus') === 'head' || q.get('focus') === 'chest') {
+      // dev: portrait framing on the face (or on the chest, for the necklaces and sash)
+      const fb = character.body.byName[q.get('focus') === 'chest' ? 'spine01' : 'head'];
+      const h = new THREE.Vector3().setFromMatrixPosition(fb.matrixWorld);
       const d = +(q.get('dist') ?? 1.15);
       if (q.has('yaw')) {
         // yaw in degrees around the head from its own facing direction (90 = the figure's left profile)
-        const f = new THREE.Vector3(0, 0, 1).transformDirection(character.body.byName.head.matrixWorld).setY(0).normalize();
+        const f = new THREE.Vector3(0, 0, 1).transformDirection(fb.matrixWorld).setY(0).normalize();
         f.applyAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(+q.get('yaw')));
         camera.position.set(h.x + f.x * d, h.y + 0.1, h.z + f.z * d);
       } else camera.position.set(h.x + d * 0.28, h.y + 0.1, h.z + d);

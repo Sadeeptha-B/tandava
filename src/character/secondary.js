@@ -4,6 +4,7 @@ import { createHair } from './hair.js';
 import { createGarment } from './garment.js';
 import { createOrnaments } from './ornaments.js';
 import { createSash } from './sash.js';
+import { SurfaceCollider, trunkVertices } from './surface.js';
 import { skinMaterial, eyeMaterial } from './materials.js';
 import { createFace } from './face.js';
 
@@ -76,7 +77,9 @@ export function attachSecondary(character, opts = {}) {
   const faceC = C('head', [0, 0.04, 0.07], 0.074);   // keeps side locks from swinging across the face
   const hair = createHair(character, [headC, faceC, neckC, torsoC, shouldersC, ...chest.slice(0, 4), ...arms]);
   const garment = createGarment(character, [pelvisC, ...legs, bellyC], beltY);
-  const ornaments = createOrnaments(character, [torsoC, ...chest, neckC]);
+  // bead strands lie on the real skin: a CPU-skinned sampling of the chest, shoulders and neck base
+  const chestSkin = new SurfaceCollider(body, trunkVertices(body, B.spine03.userData.head.y - 0.06, B.neck01.userData.head.y + 0.035));
+  const ornaments = createOrnaments(character, [chestSkin, neckC]);
 
   // crescent moon tucked into the topknot
   ornaments.moon.position.set(0.058, 0.05, 0.052);

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { makeSkinned } from './body.js';
 import { sashMaterial } from './materials.js';
+import { surfaceProjector, trunkVertices } from './surface.js';
 
 // A tiger-skin sash worn over the left shoulder and across the body to the right hip,
 // front and back. It is laid on the rest-pose body surface and skinned with the weights
@@ -9,7 +10,7 @@ export function createSash(character, { width = 0.058, lift = 0.005 } = {}) {
   const { body } = character;
   const B = body.byName;
   const g = body.geometries.body;
-  const pos = g.attributes.position, nrm = g.attributes.normal, si = g.attributes.skinIndex, sw = g.attributes.skinWeight;
+  const pos = g.attributes.position, nrm = g.attributes.normal;
   const N = pos.count;
   const P = new THREE.Vector3(), Q = new THREE.Vector3();
 
@@ -75,28 +76,49 @@ export function createSash(character, { width = 0.058, lift = 0.005 } = {}) {
     });
   }
 
-  // strip geometry: 3 vertices across (edges slightly lower so the band hugs the body)
-  const ACROSS = 3, n = samples.length;
+  // The smoothed guide samples cut chords through convex forms (the pectorals), so they only fix the
+  // path: resample it evenly and put every vertex back on the real triangles, offset along the
+  // surface normal, with the skin weights of the surface point beneath it.
+  const project = surfaceProjector(body, trunkVertices(body, hipY - 0.05, neckY + 0.06, 0.6));
+  const STEP = 0.012;
+  let centre = samples.map((s) => s.p);
+  let rows = [];
+  for (let pass = 0; pass < 2; pass++) {
+    const curve = new THREE.CatmullRomCurve3(centre, false, 'centripetal');
+    const pts = curve.getSpacedPoints(Math.max(8, Math.round(curve.getLength() / STEP)));
+    rows = pts.map((p) => project(p) ?? { point: p.clone(), normal: new THREE.Vector3(0, 0, 1), skinIndex: [0, 0, 0, 0], skinWeight: [1, 0, 0, 0] });
+    // light smoothing between passes keeps the path from following every surface ripple
+    centre = rows.map((r, i) => (i === 0 || i === rows.length - 1 ? r.point.clone()
+      : r.point.clone().multiplyScalar(0.5).addScaledVector(rows[i - 1].point, 0.25).addScaledVector(rows[i + 1].point, 0.25)));
+  }
+  const n = rows.length;
+  const nrmS = rows.map((r) => r.normal.clone());
+  for (let it = 0; it < 3; it++) {
+    const prev = nrmS.map((v) => v.clone());
+    for (let i = 1; i < n - 1; i++) nrmS[i].copy(prev[i]).multiplyScalar(0.5).addScaledVector(prev[i - 1], 0.25).addScaledVector(prev[i + 1], 0.25).normalize();
+  }
+
+  // strip geometry: 5 vertices across, each projected onto the body (edges a touch lower so the band hugs it)
+  const ACROSS = 5;
   const vp = new Float32Array(n * ACROSS * 3), vn = new Float32Array(n * ACROSS * 3), vuv = new Float32Array(n * ACROSS * 2);
   const vsi = new Uint16Array(n * ACROSS * 4), vsw = new Float32Array(n * ACROSS * 4);
   const idx = [];
   const T = new THREE.Vector3(), W = new THREE.Vector3();
   let along = 0;
-  // nearest torso vertex for skin weights
-  const nearest = (p) => { let b = 0, bd = Infinity; for (const i of torso) { const d = P.fromBufferAttribute(pos, i).distanceToSquared(p); if (d < bd) { bd = d; b = i; } } return b; };
   for (let i = 0; i < n; i++) {
-    const s = samples[i];
-    T.subVectors(samples[Math.min(i + 1, n - 1)].p, samples[Math.max(i - 1, 0)].p).normalize();
-    W.crossVectors(s.n, T).normalize();
-    if (i > 0) along += s.p.distanceTo(samples[i - 1].p);
+    const c0 = rows[i].point;
+    T.subVectors(rows[Math.min(i + 1, n - 1)].point, rows[Math.max(i - 1, 0)].point).normalize();
+    W.crossVectors(nrmS[i], T).normalize();
+    if (i > 0) along += c0.distanceTo(rows[i - 1].point);
     for (let k = 0; k < ACROSS; k++) {
       const u = k / (ACROSS - 1) - 0.5, v = i * ACROSS + k;
-      Q.copy(s.p).addScaledVector(W, u * width).addScaledVector(s.n, lift - Math.abs(u) * 0.004);
-      Q.toArray(vp, v * 3);
-      s.n.toArray(vn, v * 3);
+      Q.copy(c0).addScaledVector(W, u * width);
+      const hit = project(Q) ?? { point: Q.clone(), normal: nrmS[i], skinIndex: rows[i].skinIndex, skinWeight: rows[i].skinWeight };
+      P.copy(hit.point).addScaledVector(hit.normal, lift - Math.abs(u) * 0.002);
+      P.toArray(vp, v * 3);
+      hit.normal.toArray(vn, v * 3);
       vuv[v * 2] = u + 0.5; vuv[v * 2 + 1] = along / width;
-      const b = nearest(Q);
-      for (let c = 0; c < 4; c++) { vsi[v * 4 + c] = si.getComponent(b, c); vsw[v * 4 + c] = sw.getComponent(b, c); }
+      for (let c = 0; c < 4; c++) { vsi[v * 4 + c] = hit.skinIndex[c]; vsw[v * 4 + c] = hit.skinWeight[c]; }
       if (i < n - 1 && k < ACROSS - 1) { const a = v, b2 = v + 1, c = v + ACROSS, d = v + ACROSS + 1; idx.push(a, c, b2, b2, c, d); }
     }
   }
