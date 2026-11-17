@@ -6,10 +6,12 @@ import { tubeGeometry } from './fit.js';
 // sitting on it:
 //   1. swept-back locks laid over the scalp from the hairline up into the topknot (rigid)
 //   2. the coiled topknot itself (rigid)
-//   3. free locks from the temples, sides and nape that fall past the shoulders (simulated)
+//   3. free locks from the back and nape that fall past the shoulders (simulated)
+//   4. side locks that drape from the upper sides of the head down over the temples and
+//      ears and on to the chest, giving the head its width (simulated, shape-held near the skull)
 // The skin shader paints the scalp dark underneath (hairMask) so no skin shows between locks.
 
-const LOCKS = 92, POINTS = 12, RADIAL = 6, SUB = 2;
+const LOCKS = 84, DRAPE = 56, POINTS = 12, RADIAL = 6, SUB = 2;
 const RINGS = (POINTS - 1) * SUB + 1;
 
 function ropeNormalMap() {
@@ -162,7 +164,7 @@ export function createHair(character, colliders, { material } = {}) {
         d.copy(ds).lerp(dk, t).normalize();                                   // great-arc towards the knot
         d.addScaledVector(side, Math.sin(t * Math.PI) * wob + 0.012 * t * Math.sin(t * 9 + ph)).normalize();
         // roots sit just under the skin so no cut ends show along the hairline
-        const r = THREE.MathUtils.lerp(radiusAlong(d), rk, t * t) - 0.004 + (0.004 + thick) * Math.sin(Math.min(1, t * 2.2) * Math.PI * 0.5);
+        const r = THREE.MathUtils.lerp(radiusAlong(d), rk, t * t) - 0.004 + (0.004 + thick + 0.012 * Math.abs(d.x)) * Math.sin(Math.min(1, t * 2.2) * Math.PI * 0.5);
         pts.push(C.clone().addScaledVector(d, r).sub(headPos));
         radii.push(thick * (0.92 + 0.08 * THREE.MathUtils.smoothstep(t, 0, 0.25)) * (1 + 0.14 * Math.sin(j * 2.1 + ph)));
       }
@@ -176,48 +178,80 @@ export function createHair(character, colliders, { material } = {}) {
     head.add(cap);
   }
 
-  // ---- free locks: temples, sides and nape
-  const cand = [];
-  scalpPts.forEach((q, i) => {
-    const back = q.z < eye.z - 0.085, temple = Math.abs(q.x) > 0.062 && q.z < eye.z - 0.062;
-    if ((back || temple) && q.y < crown.y - 0.03) cand.push(i);
-  });
-  const roots = farthestSample(scalpPts, cand, LOCKS, cand.reduce((b, i) => (scalpPts[i].y < scalpPts[b].y ? i : b), cand[0]));
-  const NL = roots.length;
+  // ---- simulated locks. Each definition is a rest path (bind pose), a thickness and how
+  // strongly its first few points hold their shape against the head.
+  const defs = [];
 
+  // (3) back and nape
+  {
+    const cand = [];
+    scalpPts.forEach((q, i) => { if (q.z < eye.z - 0.085 && q.y < crown.y - 0.03) cand.push(i); });
+    const roots = farthestSample(scalpPts, cand, LOCKS, cand.reduce((m, i) => (scalpPts[i].y < scalpPts[m].y ? i : m), cand[0]));
+    for (const ri of roots) {
+      const root = scalpPts[ri], nrm = scalpNrm[ri];
+      const low = THREE.MathUtils.clamp((crown.y - root.y) / 0.17, 0, 1);
+      const dir = nrm.clone().multiplyScalar(0.8).add(new THREE.Vector3(Math.sign(root.x) * 0.12, -0.5, -0.45)).normalize();
+      const length = 0.28 + rnd() * 0.2 + low * 0.26, seg = length / (POINTS - 1);
+      const pts = [];
+      for (let j = 0; j < POINTS; j++) pts.push(root.clone().addScaledVector(dir, seg * j).addScaledVector(nrm, -0.004));
+      defs.push({ pts, thick: 0.006 + rnd() * 0.006, hold: [0.55, 0.14, 0.03], wind: 1 });
+    }
+  }
+
+  // (4) side drape: rooted high on the sides, laid down over the temple and ear, then hanging free
+  {
+    const cand = [];
+    scalpPts.forEach((q, i) => {
+      const ax = Math.abs(q.x);
+      if (ax > 0.026 && ax < 0.095 && q.y > eye.y + 0.045 && q.y < crown.y - 0.012 && q.z < eye.z - 0.052 && q.z > eye.z - 0.165) cand.push(i);
+    });
+    const roots = farthestSample(scalpPts, cand, DRAPE);
+    const cur = new THREE.Vector3(), dv = new THREE.Vector3(), step = new THREE.Vector3();
+    for (const ri of roots) {
+      const root = scalpPts[ri], nrm = scalpNrm[ri], sgn = Math.sign(root.x) || 1;
+      const front = THREE.MathUtils.smoothstep(root.z, eye.z - 0.14, eye.z - 0.055);     // 1 near the temples
+      const thick = 0.0085 + rnd() * 0.0055;
+      const length = 0.36 + rnd() * 0.2 + (1 - front) * 0.08, seg = length / (POINTS - 1);
+      const lift = 0.012 + thick + rnd() * 0.008;                                         // stands off the skull: volume
+      step.set(sgn * (0.42 + rnd() * 0.2), -1, THREE.MathUtils.lerp(-0.24, 0.04, front) + (rnd() - 0.5) * 0.12).normalize().multiplyScalar(seg);
+      const pts = [root.clone().addScaledVector(nrm, -0.004)];
+      cur.copy(root);
+      for (let j = 1; j < POINTS; j++) {
+        cur.add(step);
+        if (cur.y > eye.y - 0.075) {
+          // beside the skull: ride over its surface instead of cutting through it
+          dv.copy(cur).sub(C);
+          const len = dv.length(), need = radiusAlong(dv.multiplyScalar(1 / len)) + lift;
+          if (len < need) cur.copy(C).addScaledVector(dv, need);
+        } else if (Math.abs(cur.x) < 0.1) cur.x = sgn * 0.1;                              // clear of the jaw and neck
+        pts.push(cur.clone());
+      }
+      defs.push({ pts, thick, hold: [0.75, 0.55, 0.34, 0.16, 0.06], wind: 0.55 });
+    }
+  }
+
+  const NL = defs.length;
   const sim = new Verlet(NL * POINTS);
   sim.iterations = 3;
   sim.substeps = 2;
   sim.colliders = colliders;
   const lockInfo = [];
-  roots.forEach((ri, l) => {
-    const root = scalpPts[ri], nrm = scalpNrm[ri];
-    const low = THREE.MathUtils.clamp((crown.y - root.y) / 0.17, 0, 1);
-    const front = THREE.MathUtils.smoothstep(root.z, eye.z - 0.1, eye.z - 0.05);        // 1 at the temples
-    const dir = nrm.clone().multiplyScalar(0.8 - 0.3 * front)
-      .add(new THREE.Vector3(Math.sign(root.x) * (0.12 + 0.2 * front), -0.5 - 0.45 * front, -0.45 + 0.6 * front)).normalize();
-    const length = 0.28 + rnd() * 0.2 + low * 0.26 + front * 0.1;
-    const seg = length / (POINTS - 1);
-    const thick = 0.006 + rnd() * 0.006;
-    lockInfo.push({ thick, seed: rnd(), wave: 0.006 + rnd() * 0.012, freq: 1.4 + rnd() * 1.6 });
+  defs.forEach((def, l) => {
+    lockInfo.push({ thick: def.thick, seed: rnd(), wave: 0.006 + rnd() * 0.012, freq: 1.4 + rnd() * 1.6 });
     for (let j = 0; j < POINTS; j++) {
-      const i = l * POINTS + j;
-      sim.pos[i * 3] = root.x + dir.x * seg * j - nrm.x * 0.004;
-      sim.pos[i * 3 + 1] = root.y + dir.y * seg * j - nrm.y * 0.004;
-      sim.pos[i * 3 + 2] = root.z + dir.z * seg * j - nrm.z * 0.004;
-      sim.radius[i] = thick * 0.8 + 0.004;
+      const i = l * POINTS + j, q = def.pts[j];
+      sim.pos[i * 3] = q.x; sim.pos[i * 3 + 1] = q.y; sim.pos[i * 3 + 2] = q.z;
+      sim.radius[i] = def.thick * 0.8 + 0.004;
       sim.drag[i] = 0.02 + 0.014 * (j / POINTS);
-      sim.windK[i] = (0.3 + 0.7 * (j / (POINTS - 1))) * (1 - 0.35 * front);
-      if (j > 0) sim.link(i - 1, i, 1, seg);
-      if (j > 1) sim.link(i - 2, i, 0.07, seg * 2); // slight bending resistance
+      sim.windK[i] = (0.3 + 0.7 * (j / (POINTS - 1))) * def.wind;
+      if (j > 0) sim.link(i - 1, i, 1);
+      if (j > 1) sim.link(i - 2, i, 0.07); // slight bending resistance
     }
   });
-  for (let l = 0; l < NL; l++) {
+  defs.forEach((def, l) => {
     sim.pin(l * POINTS, head);
-    sim.target(l * POINTS + 1, head, 0.55);
-    sim.target(l * POINTS + 2, head, 0.14);
-    sim.target(l * POINTS + 3, head, 0.03);
-  }
+    def.hold.forEach((k, j) => sim.target(l * POINTS + 1 + j, head, k));
+  });
   sim.bindRest(() => head);
 
   // ---- tube mesh (Catmull-Rom smoothed, with a rest wave so locks are never ruler-straight)

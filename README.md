@@ -37,6 +37,28 @@ Controls fade in on pointer movement and hide again when idle.
 
 URL options: `?el=fire|water|both`, `?q=low|medium|high` (override the automatic quality tier).
 
+## Deploy to GitHub Pages
+
+The [deployment workflow](.github/workflows/deploy-pages.yml) builds and publishes `dist/` on every push
+to `main`. It can also be run manually from **Actions > Deploy to GitHub Pages > Run workflow**.
+
+1. In the repository's **Settings > Pages > Build and deployment**, set **Source** to **GitHub Actions**.
+2. Push the workflow to `main` (or run it manually after enabling Pages).
+3. Open the site URL shown in the workflow's `github-pages` deployment environment.
+   For this repository, the default URL is <https://sadeeptha-b.github.io/tandava/>.
+
+The workflow uses Node.js 24, `npm ci` and the committed character assets in `public/assets/`; it does not
+need to fetch or rebuild the MakeHuman source assets. Vite's base URL is taken from the Pages configuration,
+so the bundle works under the repository path and also supports a configured custom domain. No additional
+repository secrets are needed; deployment uses GitHub's built-in `GITHUB_TOKEN`.
+
+To check the repository-path build locally:
+
+```bash
+npm run build -- --base /tandava/
+npm run preview -- --base /tandava/  # http://localhost:4173/tandava/
+```
+
 ## Rendering strategy and trade-offs
 
 The brief asks for the strategy to be chosen deliberately between real-time 3D, pre-rendered video and a hybrid.

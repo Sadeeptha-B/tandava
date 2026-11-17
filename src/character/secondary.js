@@ -42,7 +42,8 @@ export function attachSecondary(character, opts = {}) {
   character.mesh.castShadow = true;
   character.mesh.receiveShadow = true;
 
-  const hair = createHair(character, [headC, neckC, torsoC, shouldersC, ...chest.slice(0, 4), ...arms]);
+  const faceC = C('head', [0, 0.04, 0.07], 0.074);   // keeps side locks from swinging across the face
+  const hair = createHair(character, [headC, faceC, neckC, torsoC, shouldersC, ...chest.slice(0, 4), ...arms]);
   const garment = createGarment(character, [pelvisC, ...legs, bellyC], beltY);
   const ornaments = createOrnaments(character, [torsoC, ...chest, neckC]);
 
