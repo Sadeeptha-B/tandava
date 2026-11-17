@@ -230,7 +230,12 @@ async function start() {
       // dev: portrait framing on the face
       const h = new THREE.Vector3().setFromMatrixPosition(character.body.byName.head.matrixWorld);
       const d = +(q.get('dist') ?? 1.15);
-      camera.position.set(h.x + d * 0.28, h.y + 0.1, h.z + d);
+      if (q.has('yaw')) {
+        // yaw in degrees around the head from its own facing direction (90 = the figure's left profile)
+        const f = new THREE.Vector3(0, 0, 1).transformDirection(character.body.byName.head.matrixWorld).setY(0).normalize();
+        f.applyAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(+q.get('yaw')));
+        camera.position.set(h.x + f.x * d, h.y + 0.1, h.z + f.z * d);
+      } else camera.position.set(h.x + d * 0.28, h.y + 0.1, h.z + d);
       camera.lookAt(h.x, h.y + 0.08, h.z);
     }
     post.grade.uniforms.uFade.value = 1;

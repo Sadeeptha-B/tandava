@@ -11,7 +11,7 @@ const SRC = join(ROOT, 'assets-src', 'makehuman');
 const OUT = join(ROOT, 'public', 'assets');
 
 // ---------------------------------------------------------------- recipe
-const MUSCLE = 1.0; // 0 = average, 1 = MakeHuman "max muscle"
+const MUSCLE = 0.8; // 0 = average, 1 = MakeHuman "max muscle"
 const EYES_CLOSED = 0.94; // rest state: lids lowered in meditation (the eyesOpen morph raises them)
 const TARGETS = {
   'universal-male-young-averagemuscle-averageweight': 1 - MUSCLE,
@@ -21,39 +21,49 @@ const TARGETS = {
   'african-male-young': 0.2,
   'male-young-maxmuscle-averageweight-idealproportions': 0.8 * MUSCLE,
   'male-young-averagemuscle-averageweight-idealproportions': 0.8 * (1 - MUSCLE),
-  'torso-vshape-incr': 0.7,
-  'torso-muscle-pectoral-incr': 0.55,
-  'torso-muscle-dorsi-incr': 0.5,
+  // heroic but natural proportions (checked with a measuring script against an 8-head heroic canon):
+  // shoulders ~2.75 heads across the deltoids, waist ~1.45, hips only a little wider than the waist
+  'torso-vshape-incr': 0.3,
+  'torso-muscle-pectoral-incr': 0.45,
+  'torso-muscle-dorsi-incr': 0.15,
   'stomach-tone-incr': 1.0,
-  'measure-shoulder-dist-incr': 0.55,
-  'measure-waist-circ-decr': 0.3,
-  'measure-upperarm-circ-incr': 0.45,
-  'measure-neck-circ-incr': 0.5,
-  'neck-scale-horiz-incr': 0.3,
-  'l-upperarm-shoulder-muscle-incr': 0.8,
-  'r-upperarm-shoulder-muscle-incr': 0.8,
-  'l-upperarm-muscle-incr': 0.6,
-  'r-upperarm-muscle-incr': 0.6,
-  'l-lowerarm-muscle-incr': 0.5,
-  'r-lowerarm-muscle-incr': 0.5,
+  'measure-shoulder-dist-incr': 0.2,
+  'measure-waist-circ-incr': 0.3,
+  'measure-hips-circ-decr': 0.6,
+  'measure-upperarm-circ-incr': 0.15,
+  'measure-neck-circ-incr': 0.3,
+  'measure-neck-height-incr': 0.4,
+  'neck-scale-horiz-incr': 0.15,
+  'measure-thigh-circ-incr': 0.15,
+  'measure-calf-circ-incr': 0.25,
+  'measure-upperarm-length-incr': 0.6,
+  'measure-lowerarm-length-decr': 0.6,
+  'l-upperarm-shoulder-muscle-incr': 0.3,
+  'r-upperarm-shoulder-muscle-incr': 0.3,
+  'l-upperarm-muscle-incr': 0.4,
+  'r-upperarm-muscle-incr': 0.4,
+  'l-lowerarm-muscle-incr': 0.35,
+  'r-lowerarm-muscle-incr': 0.35,
   'eye-left-closure': EYES_CLOSED,
   'eye-right-closure': EYES_CLOSED,
-  // face: an idealised, sculptural head – oval, high cheekbones, long straight nose, full bowed lips, long eyes
-  'head-oval': 0.25,
-  'head-square': 0.35,
+  // face: an idealised, elegant head – a lean oval with a clean, angular jaw; cheekbones present but not
+  // jutting (no hollows beneath them), long straight nose, full bowed lips, long eyes
+  'head-oval': 0.5,
+  'head-square': 0.2,
+  'head-invertedtriangular': 0.2,
+  'head-age-decr': 0.3,
   'forehead-temple-decr': 0.3,
   'eyebrows-trans-forward': 0.45,
   'eyebrows-angle-down': 0.25,
   'nose-scale-horiz-decr': 0.2,
-  'chin-width-incr': 0.25,
   'head-fat-decr': 0.35,
   'forehead-scale-vert-decr': 0.6,
-  'chin-bones-incr': 0.35,
+  'chin-bones-incr': 0.3,
   'chin-prominent-incr': 0.25,
-  'l-cheek-bones-incr': 0.6,
-  'r-cheek-bones-incr': 0.6,
-  'l-cheek-volume-decr': 0.65,
-  'r-cheek-volume-decr': 0.65,
+  'l-cheek-bones-incr': 0.1,
+  'r-cheek-bones-incr': 0.1,
+  'l-cheek-volume-decr': 0.2,
+  'r-cheek-volume-decr': 0.2,
   'nose-scale-vert-incr': 0.2,
   'nose-greek-incr': 0.5,
   'nose-scale-depth-incr': 0.3,
@@ -347,7 +357,7 @@ const body = buildPart(bodyFaces, 1, Object.values(morphSrc));
   const DEF = /^(hips|spine0[1-4]|clavicle|shoulder01|upperarm|lowerarm0[12]|upperleg|lowerleg0[12])/;
   let mask = body.wts.map((m) => { let s = 0, t = 0; for (const [b, w] of m) { t += w; if (DEF.test(bones[b].name)) s += w; } return [t ? s / t : 0, 0, 0]; });
   mask = smooth(mask, 6).map((v) => Math.min(1, Math.max(0, (v[0] - 0.25) / 0.6)));
-  const AMP = 0.85;               // how strongly to exaggerate mid-scale forms
+  const AMP = 0.7;               // how strongly to exaggerate mid-scale forms
   const broad = smooth(body.pos, 10);
   const fine = smooth(body.pos, 3);
   body.cavity = new Float32Array(n);

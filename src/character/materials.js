@@ -22,11 +22,15 @@ vec3 tigerSkin(vec2 uv, float seed){
   return mix(fur, vec3(.03, .02, .015), stripe);
 }
 // 1 on the scalp (same function is mirrored on the CPU in hair.js)
+// hairline (mirrored on the CPU by scalpDepth() in hair.js): high on the forehead, then at the sides it
+// comes down past the temple into a sideburn in front of the ear; the ear itself stays bare
 float hairMask(vec3 p, vec3 eye){
-  float drop = clamp((eye.z - .055 - p.z) * 1.5, 0., .165);
-  float line = eye.y + .064 - drop + .004 * sin(p.x * 90.) - .01 * (1. - smoothstep(0., .02, abs(p.x)));
-  float m = smoothstep(line - .003, line + .003, p.y) * step(abs(p.x), .12) * step(eye.y - .11, p.y);
-  if (abs(p.x) > .066 && p.y < eye.y + .034 && p.z > eye.z - .14 && p.z < eye.z - .05) m = 0.;
+  float u = eye.z - p.z, ax = abs(p.x);
+  float drop = clamp((u - .055) * 1.5, 0., .165);
+  float sb = .085 * smoothstep(.035, .06, ax) * smoothstep(.02, .068, u) * (1. - smoothstep(.11, .15, u));
+  float line = eye.y + .064 - drop - sb + .004 * sin(p.x * 90.) - .01 * (1. - smoothstep(0., .02, ax));
+  float m = smoothstep(line - .003, line + .003, p.y) * step(ax, .12) * step(eye.y - .11, p.y);
+  if (ax > .066 && p.y < eye.y + .02 && u > .07 && u < .125) m = 0.;
   return m;
 }
 `;
@@ -148,7 +152,7 @@ export function fabricMaterial(kind = 'tiger', seed = 1) {
       .replace('#include <color_fragment>', `#include <color_fragment>
 {
   float rag = fbm3(vec3(vUv.x * 9., 0., ${seed.toFixed(1)})) * .16 + fbm3(vec3(vUv.x * 40., 2., ${seed.toFixed(1)})) * .06;
-  float round = pow(abs(vUv.x * 2. - 1.), 2.4) * ${kind === 'tiger' ? '.34' : '.0'};
+  float round = pow(abs(vUv.x * 2. - 1.), 4.) * ${kind === 'tiger' ? '.12' : '.0'};
   if (vUv.y > 1. - rag - round) discard;
   ${kind === 'tiger'
     ? `diffuseColor.rgb = tigerSkin(vec2(vUv.x, vUv.y * .7), ${seed.toFixed(1)});`

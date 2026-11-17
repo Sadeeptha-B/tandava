@@ -55,6 +55,12 @@ const FILES = [
     'armslegs/l-lowerarm-muscle-incr', 'armslegs/r-lowerarm-muscle-incr',
     'head/head-square', 'chin/chin-width-incr', 'eyebrows/eyebrows-trans-forward', 'eyebrows/eyebrows-angle-down',
     'forehead/forehead-temple-decr', 'nose/nose-scale-horiz-decr', 'neck/neck-scale-horiz-incr',
+    // proportion pass: longer neck, stronger legs, upper arm longer than forearm, waist/hips balance
+    'measure/measure-neck-height-incr', 'measure/measure-thigh-circ-incr', 'measure/measure-calf-circ-incr',
+    'measure/measure-upperarm-length-incr', 'measure/measure-lowerarm-length-decr', 'measure/measure-hips-circ-decr',
+    'measure/measure-waist-circ-incr',
+    // elegant face pass: a younger, tapering oval
+    'head/head-invertedtriangular', 'head/head-age-decr',
     // expression units (runtime morphs)
     'expression/units/caucasian/eyebrows-left-down', 'expression/units/caucasian/eyebrows-right-down',
     'expression/units/caucasian/eyebrows-left-inner-up', 'expression/units/caucasian/eyebrows-right-inner-up',

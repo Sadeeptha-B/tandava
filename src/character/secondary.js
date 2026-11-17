@@ -24,14 +24,43 @@ export function attachSecondary(character, opts = {}) {
   const arms = [];
   for (const k of ['L', 'R', 'L2', 'R2']) arms.push(C(`upperarm01.${k}`, [0, 0, 0], 0.058, `lowerarm01.${k}`, [0, 0, 0], 0.048), C(`lowerarm01.${k}`, [0, 0, 0], 0.046, `wrist.${k}`, [0, 0, 0], 0.036));
   const legs = [];
-  for (const s of ['L', 'R']) legs.push(C(`upperleg01.${s}`, [0, -0.02, 0.012], 0.116, `lowerleg01.${s}`, [0, 0.02, 0.004], 0.074), C(`lowerleg01.${s}`, [0, 0, 0], 0.066, `foot.${s}`, [0, 0, 0], 0.048));
+  // thigh capsules fitted to this body's mesh (outer radius around the bone axis), so cloth never sinks into the legs
+  const legRadius = (A, Bp, t) => {
+    const ax = Bp.clone().sub(A), L = ax.length(); ax.divideScalar(L);
+    const c = A.clone().addScaledVector(ax, t * L), pp = new THREE.Vector3();
+    const gpos = body.geometries.body.attributes.position;
+    let r = 0;
+    for (let i = 0; i < gpos.count; i++) {
+      pp.fromBufferAttribute(gpos, i).sub(c);
+      const h = pp.dot(ax);
+      if (Math.abs(h) > 0.015) continue;
+      const d = pp.addScaledVector(ax, -h).length();
+      if (d < 0.13) r = Math.max(r, d);
+    }
+    return r * 1.03;
+  };
+  for (const s of ['L', 'R']) {
+    const hipJ = B[`upperleg01.${s}`].userData.head, knee = B[`lowerleg01.${s}`].userData.head, ankle = B[`foot.${s}`].userData.head;
+    const kneeOff = knee.clone().sub(hipJ).multiplyScalar(-0.08);   // capsule ends just above the knee joint
+    legs.push(C(`upperleg01.${s}`, [0, -0.02, 0.012], legRadius(hipJ, knee, 0.2), `lowerleg01.${s}`, kneeOff.toArray(), legRadius(hipJ, knee, 0.9)),
+      C(`lowerleg01.${s}`, [0, 0, 0], legRadius(knee, ankle, 0.15), `foot.${s}`, [0, 0, 0], 0.048));
+  }
   // collider with a centre given in bind-pose world space
   const CW = (a, w, r) => new Collider(B[a], v(w).sub(B[a].userData.head), r);
-  // chest / abdomen fitted to the measured silhouette (front surface z ~ 0.16 at the pectorals)
+  // chest / abdomen: spheres whose radius is fitted to the front surface of this body, so strands of
+  // beads rest on the skin whatever the body proportions (placed relative to the shoulder joints)
+  const bpos = body.geometries.body.attributes.position;
+  const frontZ = (x, y) => {
+    let z = -1;
+    for (let i = 0; i < bpos.count; i++) if (Math.abs(bpos.getX(i) - x) < 0.018 && Math.abs(bpos.getY(i) - y) < 0.018) z = Math.max(z, bpos.getZ(i));
+    return z;
+  };
+  const shY = B['upperarm01.L'].userData.head.y, shX = B['upperarm01.L'].userData.head.x;
+  const fitted = (bone, x, y, cz) => CW(bone, [x, y, cz], frontZ(x, y) - cz + 0.002);
   const chest = [
-    CW('spine01', [0.078, 1.375, 0.045], 0.127), CW('spine01', [-0.078, 1.375, 0.045], 0.127),
-    CW('spine01', [0, 1.385, 0.03], 0.132), CW('spine01', [0, 1.465, 0.012], 0.123),
-    CW('spine02', [0, 1.275, 0.018], 0.134), CW('spine03', [0, 1.18, 0.012], 0.13),
+    fitted('spine01', shX * 0.34, shY - 0.095, 0.045), fitted('spine01', -shX * 0.34, shY - 0.095, 0.045),
+    fitted('spine01', 0, shY - 0.085, 0.03), fitted('spine01', 0, shY - 0.005, 0.012),
+    fitted('spine02', 0, shY - 0.195, 0.018), fitted('spine03', 0, shY - 0.29, 0.012),
   ];
   const bellyC = C('spine03', [0, 0, 0.02], 0.135);
 

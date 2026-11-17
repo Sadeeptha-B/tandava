@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Verlet } from './verlet.js';
 import { profile, attachToBone } from './fit.js';
-import { fabricMaterial } from './materials.js';
+import { fabricMaterial, gem } from './materials.js';
 
 // Tiger-skin loin panels (front / back), two long silk sashes and a twisted waist sash.
 // The panels and sashes are simulated cloth pinned to the hips.
@@ -28,13 +28,38 @@ export function createGarment(character, colliders, beltY) {
   bg.setAttribute('uv', new THREE.Float32BufferAttribute(buv, 2));
   bg.setIndex(bi);
   bg.computeVertexNormals();
-  const belt = attachToBone(new THREE.Mesh(bg, fabricMaterial('silk', 3)), hips);
+  // kati-bandha: a bronze-gold girdle with a medallion at the front
+  const bronze = new THREE.MeshStandardMaterial({ color: 0xb98a3e, roughness: 0.38, metalness: 1.0 });
+  const belt = attachToBone(new THREE.Mesh(bg, bronze), hips);
   belt.castShadow = true;
+  {
+    const front = waist.point(0, 0.024, new THREE.Vector3());
+    const med = new THREE.Group();
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.036, 0.008, 28), bronze);
+    disc.rotation.x = Math.PI / 2;
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.036, 0.0035, 8, 32), bronze);
+    const petals = new THREE.Group();
+    for (let i = 0; i < 8; i++) {
+      const p = new THREE.Mesh(new THREE.SphereGeometry(0.0085, 10, 8), bronze);
+      const a = (i / 8) * Math.PI * 2;
+      p.position.set(Math.cos(a) * 0.021, Math.sin(a) * 0.021, 0.004); p.scale.set(1, 0.6, 0.45);
+      p.rotation.z = a;
+      petals.add(p);
+    }
+    const stone = new THREE.Mesh(new THREE.SphereGeometry(0.011, 14, 10), gem(0x0f5c3a));
+    stone.position.z = 0.006; stone.scale.z = 0.6;
+    med.add(disc, rim, petals, stone);
+    med.position.copy(front).sub(hips.userData.head);
+    med.lookAt(med.position.clone().add(new THREE.Vector3(0, 0, 1)));
+    // detail layer (see secondary.js): seen by the main camera, skipped by the reflection and shadow passes
+    med.traverse((o) => { o.layers.set(1); if (o.isMesh) o.castShadow = false; });
+    hips.add(med);
+  }
 
   // ---- cloth pieces
   const pieces = [
-    { name: 'front', t0: -62 * D, t1: 62 * D, cols: 10, rows: 10, seg: 0.047, flare: 0.006, kind: 'tiger', seed: 1 },
-    { name: 'back', t0: 112 * D, t1: 248 * D, cols: 10, rows: 11, seg: 0.047, flare: 0.007, kind: 'tiger', seed: 5 },
+    { name: 'front', t0: -62 * D, t1: 62 * D, cols: 10, rows: 12, seg: 0.047, flare: 0.006, kind: 'tiger', seed: 1 },
+    { name: 'back', t0: 112 * D, t1: 248 * D, cols: 10, rows: 13, seg: 0.047, flare: 0.007, kind: 'tiger', seed: 5 },
     { name: 'sashL', t0: 86 * D, t1: 108 * D, cols: 3, rows: 18, seg: 0.058, flare: 0.004, kind: 'silk', seed: 2 },
     { name: 'sashR', t0: -108 * D, t1: -86 * D, cols: 3, rows: 16, seg: 0.058, flare: 0.004, kind: 'silk', seed: 7 },
   ];
