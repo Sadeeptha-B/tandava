@@ -95,6 +95,7 @@ async function start() {
   const flameHand = character.rig.hands.L2, flameBone = character.body.byName['wrist.L2'];
   const flameLocal = flameHand.palmCenter.clone().multiplyScalar(0.85).addScaledVector(flameHand.palm0, 0.05);
   const flamePos = new THREE.Vector3();
+  const _rimCool = new THREE.Color();
 
   const post = createPost(renderer, scene, camera, { quality });
   const rig = createCameraRig(camera, canvas, { reducedMotion });
@@ -146,6 +147,8 @@ async function start() {
     dress.skin.userData.uniforms.uThirdEye.value = 0.2 + 0.7 * I + pulse * 0.8;
     dress.skin.userData.uniforms.uEmber.value.copy(P.flame);
     dress.eyeMat.userData.uniforms.uGlow.value = 0.03 * I + pulse * 0.1;
+    // hair rim: warm from the ring behind, cool from the water light, so the jata reads against the dark hall
+    dress.hair.rim.copy(P.rim).multiplyScalar(0.1 + 0.04 * I).add(_rimCool.copy(P.fill).multiplyScalar(0.05));
     dress.eyeMat.userData.uniforms.uEmber.value.copy(P.flame);
 
     rig.update(time, dt, performer);

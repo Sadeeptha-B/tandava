@@ -71,8 +71,8 @@ export function attachSecondary(character, opts = {}) {
     const W = state.level;
     const dx = x - hp.x, dz = z - hp.z;
     const r = Math.hypot(dx, dz) + 0.12;
-    out.x = W * ((dx / r) * 11 + Math.sin(t * 2.1 + i * 0.37) * 2.6);
-    out.y = W * (9.5 + 3.5 * Math.sin(t * 1.3 + i * 0.5)) + state.gust * 9;
+    out.x = W * ((dx / r) * 11 + Math.sin(t * 2.1 + i * 0.37) * 2.6) + state.gust * (dx / r) * 7;  // stamps flare the locks outward
+    out.y = W * (9.5 + 3.5 * Math.sin(t * 1.3 + i * 0.5)) + state.gust * 3;
     out.z = W * ((dz / r) * 5 + Math.cos(t * 2.6 + i * 0.23) * 2.6 - 3);
     return out;
   };

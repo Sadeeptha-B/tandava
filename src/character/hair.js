@@ -11,7 +11,7 @@ import { tubeGeometry } from './fit.js';
 //      ears and on to the chest, giving the head its width (simulated, shape-held near the skull)
 // The skin shader paints the scalp dark underneath (hairMask) so no skin shows between locks.
 
-const LOCKS = 84, DRAPE = 56, POINTS = 12, RADIAL = 6, SUB = 2;
+const LOCKS = 84, DRAPE = 74, POINTS = 12, RADIAL = 6, SUB = 2;
 const RINGS = (POINTS - 1) * SUB + 1;
 
 function ropeNormalMap() {
@@ -84,6 +84,20 @@ export function createHair(character, colliders, { material } = {}) {
   const eye = new THREE.Vector3(...body.meta.landmarks.eyeL).setX(0);
   const normalMap = ropeNormalMap();
   const mat = material ?? new THREE.MeshPhysicalMaterial({ color: 0x0a0705, roughness: 0.58, metalness: 0.0, specularIntensity: 0.085, specularColor: new THREE.Color(1.0, 0.8, 0.55), normalMap, normalScale: new THREE.Vector2(0.9, 0.9) });
+  const rimU = { uRim: { value: new THREE.Color(0, 0, 0) } };
+  if (!material) {
+    mat.customProgramCacheKey = () => 'hair-rim';
+    mat.onBeforeCompile = (sh) => {
+      Object.assign(sh.uniforms, rimU);
+      sh.fragmentShader = sh.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform vec3 uRim;')
+        .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+{
+  float fr = 1. - clamp(abs(dot(normalize(normal), normalize(vViewPosition))), 0., 1.);
+  totalEmissiveRadiance += uRim * pow(fr, 3.6);
+}`);
+    };
+  }
   const rnd = mulberry(7);
 
   // ---- scalp samples from the body mesh
@@ -210,9 +224,9 @@ export function createHair(character, colliders, { material } = {}) {
     for (const ri of roots) {
       const root = scalpPts[ri], nrm = scalpNrm[ri], sgn = Math.sign(root.x) || 1;
       const front = THREE.MathUtils.smoothstep(root.z, eye.z - 0.14, eye.z - 0.055);     // 1 near the temples
-      const thick = 0.0085 + rnd() * 0.0055;
+      const thick = 0.009 + rnd() * 0.006;
       const length = 0.36 + rnd() * 0.2 + (1 - front) * 0.08, seg = length / (POINTS - 1);
-      const lift = 0.012 + thick + rnd() * 0.008;                                         // stands off the skull: volume
+      const lift = 0.018 + thick + rnd() * 0.016;                                         // stands off the skull: volume
       step.set(sgn * (0.42 + rnd() * 0.2), -1, THREE.MathUtils.lerp(-0.24, 0.04, front) + (rnd() - 0.5) * 0.12).normalize().multiplyScalar(seg);
       const pts = [root.clone().addScaledVector(nrm, -0.004)];
       cur.copy(root);
@@ -316,7 +330,7 @@ export function createHair(character, colliders, { material } = {}) {
   };
 
   return {
-    sim, mesh, knot, materials: [mat],
+    sim, mesh, knot, materials: [mat], rim: rimU.uRim.value,
     update(dt, time) { sim.update(dt, time); rebuild(); },
     reset() { sim.reset(); rebuild(); },
   };
