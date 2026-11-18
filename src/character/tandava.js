@@ -59,7 +59,7 @@ const A = {
   gangaWave2: { u: [.56, .76, .3], f: [-.3, .86, .4], fingers: [-.75, .1, .65], palm: [-.4, -.9, .1], pole: [.5, -.5, -.7], mudra: 'pataka' },
   gangaCrown: { u: [.55, .78, .22], f: [-.8, .45, .2], fingers: [-.95, 0, .25], palm: [0, -1, 0], pole: [.6, -.4, -.6], mudra: 'pataka' },
   // the crescent moon, held beside the topknot
-  moon: { u: [.75, .3, .55], f: [-.5, .85, 0], fingers: [-.15, .95, .2], palm: [.1, 0, 1], pole: [.5, -.5, -.7], mudra: 'chandrakala' },
+  moon: { u: [.78, .2, .55], f: [-.7, .7, .05], fingers: [-.15, .95, .2], palm: [.1, 0, 1], pole: [.5, -.5, -.7], mudra: 'chandrakala' },
   // the serpent: it lies at the neck, glides out along the shoulder, and raises its hood
   // beside the head (fingers up, palm out, cupped)
   snakeRest: { u: [.45, -.75, .45], f: [-.35, .75, .55], fingers: [.6, .1, .8], palm: [0, -1, .1], pole: [.5, -.3, -.8], mudra: 'sarpashirsha' },
@@ -145,6 +145,7 @@ export function buildTandava(rig) {
     hips: H(1, .93, { dx: .02, roll: 6 }), spine: SP(-2, -9, 0), head: HD(14, -2, 0),
     armL: A.sideUp, armR: A.side, armR2: A.dHigh, armL2: A.fHigh,
   });
+  K(23.7, { footL: foot(.44, .03, 46, { lift: .17, pitch: 20 }) }); // drive down: the first great stamp
   K(24, {
     footL: { ...foot(.4, 0, 50), ease: 'hit' },
     hips: H(.66, .8), spine: SP(4, 2, 0), head: HD(0, 2, 0),
@@ -166,7 +167,10 @@ export function buildTandava(rig) {
   K(30, { armL: A.high, armR: A.side, spine: SP(0, 7, 8), head: HD(22, -6, 4), armL2: A.fHigh, armR2: A.dAloft, fx: { damaru: .6 } });
   stamp(30.5, 'R', -.5, -55, { from: -.4, lift: .08, prep: .32, quick: true, w: .3 });
   stamp(31, 'L', .5, 55, { from: .4, lift: .08, prep: .32, quick: true, w: .3 });
+  stamp(31.5, 'R', -.5, -55, { lift: .08, prep: .32, quick: true, w: .3 });
   K(31, { fx: { damaru: 0 }, armL2: A.fAloft });
+  // the passage resolves on sam: a heavier stamp that drives down into the sink
+  stamp(32, 'L', .5, 55, { lift: .13, prep: .4, w: .3 });
   K(32, { hips: H(.5, .66), spine: SP(12, 0, 0), head: HD(0, 2, 0), armL: A.low, armR: A.low });
 
   // ===================================================================== B2  lunges – long diagonal lines
@@ -214,27 +218,33 @@ export function buildTandava(rig) {
   stamp(44.5, 'R', -.13, -55, { lift: .08, prep: .3, quick: true, w: .28 });
   stamp(45, 'L', .13, 55, { lift: .08, prep: .3, quick: true, w: .28 });
   stamp(45.5, 'R', -.13, -55, { lift: .08, prep: .3, quick: true, w: .28 });
+  stamp(46, 'L', .13, 55, { lift: .08, prep: .3, quick: true, w: .28 });
+  stamp(46.5, 'R', -.13, -55, { lift: .08, prep: .3, quick: true, w: .28 });
   K(45.5, { armL: A.chest, armR: A.chest, spine: SP(2, 0, 0), head: HD(0, 0, 0), fx: { damaru: 0 }, hips: { y: .82 } });
-  // snap into the Nataraja pose
-  K(45.9, { hips: H(.95, .84), footL: foot(.13, 0, 55) });
-  K(46.4, { footL: foot(.24, .18, 10, { lift: .3, pitch: 30, pole: [1, .6, .4] }) });
-  K(47, {
+  // snap into the Nataraja pose, arriving on sam
+  K(46.9, { hips: H(.95, .84), footL: foot(.13, 0, 55) });
+  K(47.4, { footL: foot(.24, .18, 10, { lift: .3, pitch: 30, pole: [1, .6, .4] }) });
+  K(48, {
     footL: { ...foot(-.2, .33, -78, { lift: .6, pitch: 38, pole: [1, .7, .15] }), ease: 'stop' },
     hips: H(1, .9, { dx: .03, roll: 5, yaw: 5 }), spine: SP(-2, -4, -6), head: HD(0, 0, 3),
     armR: A.abhaya, armL: A.gaja, armR2: A.dAloft, armL2: A.fAloft, fx: { damaru: .9 },
   });
-  K(48.2, { footL: foot(-.2, .33, -78, { lift: .61, pitch: 38, pole: [1, .7, .15] }), hips: H(1, .91, { dx: .03, roll: 5, yaw: 5 }), spine: SP(-2, -4, -6), armR: A.abhaya, armL: A.gaja, fx: { damaru: 0 } });
+  K(49.2, { footL: foot(-.2, .33, -78, { lift: .61, pitch: 38, pole: [1, .7, .15] }), hips: H(1, .91, { dx: .03, roll: 5, yaw: 5 }), spine: SP(-2, -4, -6), armR: A.abhaya, armL: A.gaja, fx: { damaru: 0 } });
 
   // ===================================================================== B4  rechaka: the torso draws a great circle
-  K(48.75, { footL: foot(.5, .05, 40, { lift: .36, pitch: 35, pole: [.5, 1, .3] }), hips: H(1, .92, { roll: 6 }), spine: SP(-2, -8, 0) });
-  K(49.2, { footL: { ...foot(.45, 0, 50), ease: 'hit' }, hips: H(.7, .78), spine: SP(4, 0, 0), armL: A.side, armR2: A.dOut, armL2: A.fOut });
-  stamp(50, 'R', -.45, -50, { from: -.13, lift: .14, prep: .6 });
-  K(50, { hips: { y: .72 }, spine: SP(2, 0, 0), head: HD(0, 0, 0), armR: A.side, armL: A.side });
-  K(51, { hips: H(.5, .7, { pitch: 8 }), spine: SP(22, 0, 0), head: HD(0, 12, 0), armR: A.lowFwd, armL: A.lowFwd, armR2: A.dLow, armL2: A.fLow, fx: { wind: .6 } });
-  K(52, { hips: H(.26, .72, { pitch: 3, roll: -3 }), spine: SP(8, 17, 10), head: HD(24, 2, 10), armL: A.sideUp, armR: A.chest, armL2: A.fOut, armR2: A.dAloft });
-  K(53, { hips: H(.5, .76, { pitch: -4 }), spine: SP(-12, 0, 0), head: HD(0, -14, 0), armL: A.sideUp, armR: A.sideUp, armR2: A.dHigh, armL2: A.fHigh });
-  K(54, { hips: H(.74, .72, { pitch: 3, roll: 3 }), spine: SP(8, -17, -10), head: HD(-24, 2, -10), armR: A.sideUp, armL: A.chest, armR2: A.dOut, armL2: A.fAloft });
-  K(55, { hips: H(.5, .7, { pitch: 7 }), spine: SP(18, 0, 0), head: HD(0, 8, 0), armR: A.lowFwd, armL: A.lowFwd, armR2: A.dAloft });
+  K(49.6, { footL: foot(.5, .05, 40, { lift: .36, pitch: 35, pole: [.5, 1, .3] }), hips: H(1, .92, { roll: 6 }), spine: SP(-2, -8, 0) });
+  // lower the opened leg before it strikes, so the stamp stays an accent, not a second "great landing"
+  K(49.8, { footL: foot(.46, .02, 48, { lift: .1, pitch: 12 }) });
+  K(50, { footL: { ...foot(.45, 0, 50), ease: 'hit' }, hips: H(.7, .78), spine: SP(4, 0, 0), armL: A.side, armR2: A.dOut, armL2: A.fOut });
+  stamp(51, 'R', -.45, -50, { from: -.13, lift: .14, prep: .6 });
+  K(51, { hips: { y: .72 }, spine: SP(2, 0, 0), head: HD(0, 0, 0), armR: A.side, armL: A.side });
+  K(52, { hips: H(.5, .7, { pitch: 8 }), spine: SP(22, 0, 0), head: HD(0, 12, 0), armR: A.lowFwd, armL: A.lowFwd, armR2: A.dLow, armL2: A.fLow, fx: { wind: .6 } });
+  K(52.8, { hips: H(.26, .72, { pitch: 3, roll: -3 }), spine: SP(8, 17, 10), head: HD(24, 2, 10), armL: A.sideUp, armR: A.chest, armL2: A.fOut, armR2: A.dAloft });
+  K(53.6, { hips: H(.5, .76, { pitch: -4 }), spine: SP(-12, 0, 0), head: HD(0, -14, 0), armL: A.sideUp, armR: A.sideUp, armR2: A.dHigh, armL2: A.fHigh });
+  K(54.4, { hips: H(.74, .72, { pitch: 3, roll: 3 }), spine: SP(8, -17, -10), head: HD(-24, 2, -10), armR: A.sideUp, armL: A.chest, armR2: A.dOut, armL2: A.fAloft });
+  K(55.2, { hips: H(.5, .7, { pitch: 7 }), spine: SP(18, 0, 0), head: HD(0, 8, 0), armR: A.lowFwd, armL: A.lowFwd, armR2: A.dAloft });
+  // the circle closes with a stamp on sam as the torso rises
+  stamp(56, 'L', .45, 50, { lift: .12, prep: .5 });
   K(56, { hips: H(.5, .76), spine: SP(2, 0, 0), head: HD(0, 0, 0), armR: A.side, armL: A.side });
 
   // ===================================================================== B5  the build: stamps double in speed, arms rise
@@ -343,5 +353,6 @@ export function buildTandava(rig) {
   c.phases = [[0, 'A'], [24, 'B'], [63, 'C'], [78.5, 'D']];
   c.landingBeat = 72; // sam of the tenth Adi tala cycle
   c.poseBeat = 19.4; // first arrival in the Nataraja pose (held to 21.6)
+  c.nritya = [8, 16.4]; // the storytelling passage (the camera pushes in for it)
   return c.finalize();
 }

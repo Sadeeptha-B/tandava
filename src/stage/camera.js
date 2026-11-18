@@ -49,13 +49,17 @@ export function createCameraRig(camera, dom, { reducedMotion }) {
       // dolly: drift in through the rhythmic section, pull back for the leap so the shockwave has room
       const land = performer.c.landingBeat;
       const pre = THREE.MathUtils.smoothstep(beat, land - 5, land - 0.5) * (1 - THREE.MathUtils.smoothstep(beat, land + 3, land + 8));
-      const dolly = 1 - 0.13 * THREE.MathUtils.smoothstep(I, 0.2, 0.8) + 0.2 * pre;
+      // push in and up during the storytelling passage so the hand gestures read (cinematic mode
+      // only: the orbit camera is never scripted)
+      const nr = performer.c.nritya;
+      const story = nr ? THREE.MathUtils.smoothstep(beat, nr[0] - 0.5, nr[0] + 1.5) * (1 - THREE.MathUtils.smoothstep(beat, nr[1], nr[1] + 2.5)) : 0;
+      const dolly = 1 - 0.13 * THREE.MathUtils.smoothstep(I, 0.2, 0.8) + 0.2 * pre - 0.32 * story;
       const m = reducedMotion ? 0 : 1;
       const yaw = m * (0.2 * Math.sin(time * 0.071) + 0.07 * Math.sin(time * 0.173 + 1.3));
       const dist = base * dolly + m * 0.25 * Math.sin(time * 0.05);
       state.dist += (dist - state.dist) * (1 - Math.exp(-dt * 0.9));
-      const height = 1.02 + m * 0.16 * Math.sin(time * 0.043 + 0.7) - 0.25 * pre + (state.zoom - 1) * 0.3;
-      look.set(state.focusX, state.focusY + 0.08 - 0.1 * pre + (state.zoom - 1) * 0.28, -0.1);
+      const height = 1.02 + m * 0.16 * Math.sin(time * 0.043 + 0.7) - 0.25 * pre + 0.14 * story + (state.zoom - 1) * 0.3;
+      look.set(state.focusX, state.focusY + 0.08 - 0.1 * pre + 0.17 * story + (state.zoom - 1) * 0.28, -0.1);
       pos.set(look.x + Math.sin(yaw) * state.dist, height, look.z + Math.cos(yaw) * state.dist);
       if (!reducedMotion && state.kick > 0.003) {
         const s = state.kick * 0.022;
