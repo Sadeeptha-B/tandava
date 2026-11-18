@@ -209,6 +209,8 @@ export class Choreography {
 // Performer: samples the choreography, resolves balance / foot contact, adds
 // follow-through and impact response, and feeds the rig.
 // ---------------------------------------------------------------------------
+// window (seconds) over which a foot's touchdown speed is measured; stamp strengths are tuned to it
+const CONTACT_WINDOW = 1 / 60;
 const _e = new THREE.Euler();
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3();
 const _q = new THREE.Quaternion();
@@ -375,15 +377,30 @@ export class Performer {
     // ---- foot contact events
     if (dt > 0) {
       const vy = this.prevHipsY === null ? 0 : (P.hipsPos.y - this.prevHipsY) / dt;
-      this.hipsVelY += (vy - this.hipsVelY) * Math.min(1, dt * 30);
+      this.hipsVelY += (vy - this.hipsVelY) * (1 - Math.exp(-dt * 30));
+      // Stamp strength is read from the authored foot curves rather than from whatever the frames
+      // happened to catch, so it does not depend on frame rate or phase.
+      let fb0 = this.prevBeat ?? beat - dt / c.beat;
+      if (fb0 > beat) fb0 -= c.beats; // the frame straddles the loop seam
       for (const s of ['L', 'R']) {
         const leg = P.legs[s], ct = this.contact[s];
         const lift = leg.lift;
         const TH = 0.012;
-        if (lift > TH) { ct.down = false; ct.peak = Math.max(ct.peak, lift); }
-        else if (!ct.down) {
+        const liftAt = (b) => c.ch['foot' + s].sample(b, this.buf['foot' + s][1])[2];
+        if (lift > TH) {
+          ct.down = false;
+          // highest point of the lift, including between frames
+          for (let k = 1; k <= 4; k++) ct.peak = Math.max(ct.peak, liftAt(fb0 + (beat - fb0) * k / 4));
+        } else if (!ct.down) {
           ct.down = true;
-          const speed = Math.min(8, (ct.prev - lift) / dt);
+          if (ct.prev > TH) for (let k = 1; k < 4; k++) ct.peak = Math.max(ct.peak, liftAt(fb0 + (beat - fb0) * k / 4));
+          // touchdown speed: find the instant within this frame at which the foot reached the
+          // floor, then measure its descent over a fixed window ending there
+          // (contact triggers a few millimetres up, so the floor may still be just ahead of this frame)
+          let b0 = fb0, b1 = beat;
+          if (liftAt(b1) > 1e-3 && liftAt(beat + 0.2) <= 1e-3) b1 = beat + 0.2;
+          for (let i = 0; i < 24; i++) { const m = (b0 + b1) / 2; if (liftAt(m) > 1e-3) b0 = m; else b1 = m; }
+          const speed = Math.min(8, Math.max(0, liftAt(b1 - CONTACT_WINDOW / c.beat) - liftAt(b1)) / CONTACT_WINDOW);
           let strength = THREE.MathUtils.clamp((speed - 0.3) / 2.6, 0, 1) * THREE.MathUtils.clamp(ct.peak / 0.12, 0.3, 1);
           strength = Math.min(1, strength + Math.max(0, -this.hipsVelY - 1.2) * 0.35);
           ct.peak = 0;
@@ -396,5 +413,6 @@ export class Performer {
       }
     }
     this.prevHipsY = P.hipsPos.y;
+    this.prevBeat = dt > 0 ? beat : null; // a seek (dt = 0) breaks the frame-to-frame link
   }
 }
