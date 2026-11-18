@@ -334,7 +334,7 @@ export function createRing({ quality }) {
   const mg = new THREE.BufferGeometry();
   mg.setAttribute('position', new THREE.BufferAttribute(mp, 3));
   mg.setAttribute('aSeed', new THREE.BufferAttribute(ms, 4));
-  const mu = { uTime: u.uTime, uColor: { value: new THREE.Color() }, uScale: eu.uScale, uIntensity: u.uIntensity };
+  const mu = { uTime: u.uTime, uColor: { value: new THREE.Color() }, uScale: eu.uScale, uIntensity: u.uIntensity, uLevel: { value: 1 } };
   const motes = new THREE.Points(mg, new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, uniforms: mu,
     vertexShader: /* glsl */ `
@@ -348,7 +348,7 @@ export function createRing({ quality }) {
         vA = (.25 + .75 * aSeed.w) * (.5 + .5 * sin(uTime * (1. + aSeed.x * 2.) + aSeed.z * 40.)) * smoothstep(0., .6, p.y) * smoothstep(9., 6., p.y);
         gl_PointSize = uScale * (1. + 2.5 * aSeed.w) / -mv.z;
       }`,
-    fragmentShader: `uniform vec3 uColor; varying float vA; void main(){ float a = smoothstep(.5, 0., length(gl_PointCoord - .5)); gl_FragColor = vec4(uColor * a * a * vA * .55, 1.); }`,
+    fragmentShader: `uniform vec3 uColor; uniform float uLevel; varying float vA; void main(){ float a = smoothstep(.5, 0., length(gl_PointCoord - .5)); gl_FragColor = vec4(uColor * a * a * vA * .55 * uLevel, 1.); }`,
   }));
   motes.frustumCulled = false;
 
@@ -360,6 +360,8 @@ export function createRing({ quality }) {
 
   return {
     group, motes, uniforms: u, flames, light,
+    /** brightness of the drifting motes (1 = normal); lowered while the flower shower owns the air */
+    set motesLevel(k) { mu.uLevel.value = k; },
     /** a stamp: overall flare plus, when `position` is given, a gust that runs up both sides of the ring from the nearest point */
     pulse(s, position) {
       state.pulse = Math.min(2.2, state.pulse + s);

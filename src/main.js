@@ -2,12 +2,14 @@ import * as THREE from 'three';
 import { Character } from './character/character.js';
 import { attachSecondary } from './character/secondary.js';
 import { createEnvironment } from './stage/environment.js';
+import { createLamps } from './stage/lamps.js';
 import { installAtmosphere, attachAtmosphere, updateAtmosphere, atmoUniforms } from './stage/atmosphere.js';
 import { Palette } from './stage/palette.js';
 import { createPost } from './stage/post.js';
 import { createCameraRig } from './stage/camera.js';
 import { createRing, RING } from './fx/ring.js';
 import { createParticles } from './fx/particles.js';
+import { createPetals } from './fx/petals.js';
 import { createAudio } from './audio.js';
 import { createUI } from './ui.js';
 
@@ -60,10 +62,14 @@ async function start() {
   const env = createEnvironment({ quality });
   atmoUniforms.uAtmoDensity.value = scene.fog.density;
   scene.add(env.group);
+  const lamps = createLamps({ quality });
+  scene.add(lamps.group);
   const ring = createRing({ quality });
   scene.add(ring.group, ring.motes);
   const particles = createParticles({ quality });
   scene.add(particles.group);
+  const petals = createPetals({ quality });
+  scene.add(petals.group);
 
   // ---- lights -------------------------------------------------------------
   const hemi = new THREE.HemisphereLight(0xffffff, 0x000000, 0.55);
@@ -107,10 +113,12 @@ async function start() {
   const state = { paused: false, audio: false, camera: 'cinematic', element: palette.name };
   let time = 0, flash = 0, fade = still ? 1 : 0, introT = 0, prevYaw = 0;
   const _fwd = new THREE.Vector3();
+  const _buf = new THREE.Vector2();
 
   performer.onStamp((e) => {
     env.addImpact(e.position.x, e.position.z, time, e.strength);
     particles.stamp(e.position, e.strength, reducedMotion);
+    petals.gust(e.position, e.strength);
     ring.pulse(e.strength * 0.9, e.position);
     rig.impact(e.strength);
     flash = Math.max(flash, e.strength > 0.8 ? 0.7 : e.strength * 0.2);
@@ -139,6 +147,7 @@ async function start() {
     const spin = dt > 1e-3 ? dYaw / dt : 0;
     const pulse = ring.update(time, dt, P, 0.25 + 0.6 * I, pixelScale(), { spin, wind: performer.fx.wind });
     env.update(time, dt, P, camera, I * 0.6 + pulse * 0.25);
+    lamps.update(time, dt, P, camera, env.impacts, renderer.getDrawingBufferSize(_buf).y, performer.fx.wind);
 
     // lights follow the elements and the dance
     scene.fog.color.copy(P.fog);
@@ -148,6 +157,11 @@ async function start() {
     const ringPower = 0.5 + 0.32 * I + pulse * 0.25;
     // the ring's lights flicker with the lamps nearest them (left, right, top)
     updateAtmosphere(P, ringPower * ring.light.total);
+    petals.update(time, dt, P, {
+      beat: performer.beatPos, landingBeat: performer.c.landingBeat, beatDur: performer.c.beat, beats: performer.c.beats,
+      hips: performer.pose.hipsPos, wind: performer.fx.wind, spin, impacts: env.impacts, power: ringPower * ring.light.total, camera,
+    });
+    ring.motesLevel = 1 - 0.8 * petals.air; // the motes give way while the flowers fall
     env.uniforms.uRingLight.value.copy(P.rim).multiplyScalar(ringPower * ring.light.total * env.gains.ringLight);
     env.uniforms.uCaustic.value.copy(P.rim).multiplyScalar(ringPower * ring.light.total).lerp(P.water, 0.3).multiplyScalar(env.gains.caustic);
     back.color.copy(P.rim); back.intensity = 2.4 * ringPower * ring.light.total;
@@ -232,10 +246,12 @@ async function start() {
   renderer.compile(scene, camera);
 
   // ---- dev / capture hooks ------------------------------------------------------
-  window.__tandava = { character, performer, palette, rig, camera, renderer, scene, state, particles, env, ring, post, atmo: atmoUniforms };
+  window.__tandava = { character, performer, palette, rig, camera, renderer, scene, state, particles, env, lamps, petals, ring, post, atmo: atmoUniforms };
+  // dev: advance the live simulation by one frame and render it (frame-by-frame capture of motion)
+  window.__step = (dt = 1 / 30) => { step(dt); post.render(dt); return performer.beatPos; };
   window.__seek = (beat, pre = 3) => {
     const t1 = beat * character.choreo.beat, t0 = t1 - pre;
-    particles.clear(); env.clearImpacts();
+    particles.clear(); env.clearImpacts(); lamps.reset(); petals.clear();
     time = t0;
     character.seek(t0, 1);
     palette.snap();
@@ -290,7 +306,7 @@ async function start() {
     ui.sync();
   } else {
     if (reducedMotion) { window.__seek(12.6); state.paused = true; fade = 1; ui.sync(); ui.poke(); }
-    else { time = 0; character.seek(0, 0.5); particles.clear(); env.clearImpacts(); }
+    else { time = 0; character.seek(0, 0.5); particles.clear(); env.clearImpacts(); lamps.reset(); petals.clear(); }
     requestAnimationFrame(() => veil.classList.add('lifted'));
   }
   renderer.setAnimationLoop((now) => { if (!still) frame(now); });

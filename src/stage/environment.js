@@ -203,11 +203,15 @@ float caustic(vec2 p, float t){
       void main(){
         vec3 d = normalize(vWorld - cameraPosition);
         vec3 col = skyBase(d) + atmoRing(cameraPosition, d, 300.);
-        // sparse stars
+        // sparse stars: one small soft point at a random spot in a few cells of a ~1 degree grid (a lit cell would
+        // be a ~30 px square). Kept at least ~1 px across, dimmed to match, so they don't shimmer at low resolution.
         float h = clamp(d.y, -1., 1.);
         vec2 sp = vec2(atan(d.x, d.z), asin(h)) * 60.;
-        float st = step(.9965, hash21(floor(sp))) * smoothstep(.1, .5, h) * (.5 + .5 * sin(uTime * 1.5 + hash21(floor(sp) + 3.) * 40.));
-        col += vec3(.7, .9, 1.) * st * .5;
+        vec2 cell = floor(sp), sf = fract(sp) - .5 - (vec2(hash21(cell + 7.), hash21(cell + 13.)) - .5) * .6;
+        float rad = max(.035, 1.1 * fwidth(sp.y));            // cell units (fwidth of sp.y: no seam at atan's wrap)
+        float st = step(.9965, hash21(cell)) * exp(-dot(sf, sf) / (rad * rad)) * (.035 * .035) / (rad * rad)
+                 * smoothstep(.1, .5, h) * (.5 + .5 * sin(uTime * 1.5 + hash21(cell + 3.) * 40.));
+        col += vec3(.7, .9, 1.) * st * .8;
         gl_FragColor = vec4(col, 1.);
       }`,
   }));
@@ -288,6 +292,7 @@ float caustic(vec2 p, float t){
     group, water, uniforms, mist, stone, shaft, sky, tower,
     gains: { ringLight: 700, caustic: 45 }, // how strongly the ring lights the stone, and the caustics off the water
     impactIndex: 0,
+    impacts: wu.uImpacts.value, // shared with things that float on the ripples (ripples.js)
     addImpact(x, z, time, strength) {
       const v = wu.uImpacts.value[this.impactIndex];
       v.set(x, z, time, strength);
@@ -318,7 +323,7 @@ float caustic(vec2 p, float t){
 // a slender tapering octagonal shaft, a turned capital (pot, cushion, lotus flare) under a thin square
 // abacus, and a stepped bracket whose rolled tiers carry the beam. Built at its final height (19.2 m).
 const COL_TOP = 19.2;
-const HALL = { inner: 11, outer: 20, bay: 10 }; // column rows (x, m) and spacing along the hall
+export const HALL = { inner: 11, outer: 20, bay: 10 }; // column rows (x, m) and spacing along the hall
 
 // Surface of revolution from a profile of [radius, y] points. With `flat`, the section is a regular
 // polygon whose faces sit at that radius (crisp carved facets); otherwise it is round. Either way the
