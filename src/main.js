@@ -246,7 +246,7 @@ async function start() {
   renderer.compile(scene, camera);
 
   // ---- dev / capture hooks ------------------------------------------------------
-  window.__tandava = { character, performer, palette, rig, camera, renderer, scene, state, particles, env, lamps, petals, ring, post, atmo: atmoUniforms };
+  window.__tandava = { character, performer, palette, rig, camera, renderer, scene, state, particles, env, lamps, petals, ring, post, atmo: atmoUniforms, createAudio };
   // dev: advance the live simulation by one frame and render it (frame-by-frame capture of motion)
   window.__step = (dt = 1 / 30) => { step(dt); post.render(dt); return performer.beatPos; };
   window.__seek = (beat, pre = 3) => {

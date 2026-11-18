@@ -1,4 +1,5 @@
 import { Choreography } from './choreo.js';
+import { buildScore } from './score.js';
 
 // ---------------------------------------------------------------------------
 // The Tandava: an 88-beat (52.8 s) seamless cycle at 100 BPM, i.e. eleven cycles of
@@ -170,28 +171,28 @@ export function buildTandava(rig) {
   stamp(31.5, 'R', -.5, -55, { lift: .08, prep: .32, quick: true, w: .3 });
   K(31, { fx: { damaru: 0 }, armL2: A.fAloft });
   // the passage resolves on sam: a heavier stamp that drives down into the sink
-  stamp(32, 'L', .5, 55, { lift: .13, prep: .4, w: .3 });
+  stamp(32, 'L', .5, 55, { lift: .17, prep: .4, w: .3 });
   K(32, { hips: H(.5, .66), spine: SP(12, 0, 0), head: HD(0, 2, 0), armL: A.low, armR: A.low });
 
-  // ===================================================================== B2  lunges – long diagonal lines
-  K(33.6, {
+  // ===================================================================== B2  lunges – long diagonal lines, arriving on 34 and 37
+  K(34, {
     hips: H(.82, .72, { yaw: -18 }), spine: SP(5, -10, -12), head: HD(-42, -6, 0),
     armR: A.high, armL: A.low, armR2: A.dHigh, armL2: A.fOut,
   });
-  K(34.6, { hips: H(.84, .7, { yaw: -20 }), spine: SP(6, -12, -14), head: HD(-44, -8, 0) });
-  K(35.6, { hips: H(.5, .64), spine: SP(10, 0, 0), head: HD(0, 2, 0), armR: A.lowFwd, armL: A.lowFwd, armR2: A.dAloft, armL2: A.fAloft });
-  K(36.7, {
+  K(35, { hips: H(.84, .7, { yaw: -20 }), spine: SP(6, -12, -14), head: HD(-44, -8, 0) });
+  K(36, { hips: H(.5, .64), spine: SP(10, 0, 0), head: HD(0, 2, 0), armR: A.lowFwd, armL: A.lowFwd, armR2: A.dAloft, armL2: A.fAloft });
+  K(37, {
     hips: H(.18, .72, { yaw: 18 }), spine: SP(5, 10, 12), head: HD(42, -6, 0),
     armL: A.high, armR: A.low, armL2: A.fHigh, armR2: A.dOut,
   });
   K(37.6, { hips: H(.16, .7, { yaw: 20 }), spine: SP(6, 12, 14), head: HD(44, -8, 0) });
   // gather the feet back under the body
   K(37.7, { footR: foot(-.5, 0, -55) });
-  K(38.05, { footR: foot(-.32, .03, -55, { lift: .1, pitch: 12 }) });
-  K(38.45, { footR: foot(-.13, 0, -55) });
+  K(38.2, { footR: foot(-.3, .03, -55, { lift: .1, pitch: 12 }) });
+  K(38.5, { footR: { ...foot(-.13, 0, -55), ease: 'hit' } }); // a light strike: "ta"
   K(38.5, { hips: H(.3, .8, { yaw: 6 }), spine: SP(2, 3, 4), armL: A.side, armR: A.side, armL2: A.fAloft, armR2: A.dAloft, head: HD(10, 0, 0) });
   K(39.1, { hips: H(.88, .86), footL: foot(.5, 0, 55) });
-  K(39.6, { footL: foot(.3, .03, 55, { lift: .16, pitch: 12 }) });
+  K(39.7, { footL: foot(.3, .03, 55, { lift: .16, pitch: 12 }) });
   K(40, { footL: { ...foot(.13, 0, 55), ease: 'hit' }, hips: H(.6, .82), spine: SP(0, 0, 0), head: HD(0, 0, 0), armL: A.chest, armR: A.chest });
 
   // ===================================================================== B3  urdhva-janu: knee lifts and stamps
@@ -231,7 +232,7 @@ export function buildTandava(rig) {
   });
   K(49.2, { footL: foot(-.2, .33, -78, { lift: .61, pitch: 38, pole: [1, .7, .15] }), hips: H(1, .91, { dx: .03, roll: 5, yaw: 5 }), spine: SP(-2, -4, -6), armR: A.abhaya, armL: A.gaja, fx: { damaru: 0 } });
 
-  // ===================================================================== B4  rechaka: the torso draws a great circle
+  // ===================================================================== B4  rechaka: the torso draws a great circle, one quarter a beat
   K(49.6, { footL: foot(.5, .05, 40, { lift: .36, pitch: 35, pole: [.5, 1, .3] }), hips: H(1, .92, { roll: 6 }), spine: SP(-2, -8, 0) });
   // lower the opened leg before it strikes, so the stamp stays an accent, not a second "great landing"
   K(49.8, { footL: foot(.46, .02, 48, { lift: .1, pitch: 12 }) });
@@ -239,12 +240,11 @@ export function buildTandava(rig) {
   stamp(51, 'R', -.45, -50, { from: -.13, lift: .14, prep: .6 });
   K(51, { hips: { y: .72 }, spine: SP(2, 0, 0), head: HD(0, 0, 0), armR: A.side, armL: A.side });
   K(52, { hips: H(.5, .7, { pitch: 8 }), spine: SP(22, 0, 0), head: HD(0, 12, 0), armR: A.lowFwd, armL: A.lowFwd, armR2: A.dLow, armL2: A.fLow, fx: { wind: .6 } });
-  K(52.8, { hips: H(.26, .72, { pitch: 3, roll: -3 }), spine: SP(8, 17, 10), head: HD(24, 2, 10), armL: A.sideUp, armR: A.chest, armL2: A.fOut, armR2: A.dAloft });
-  K(53.6, { hips: H(.5, .76, { pitch: -4 }), spine: SP(-12, 0, 0), head: HD(0, -14, 0), armL: A.sideUp, armR: A.sideUp, armR2: A.dHigh, armL2: A.fHigh });
-  K(54.4, { hips: H(.74, .72, { pitch: 3, roll: 3 }), spine: SP(8, -17, -10), head: HD(-24, 2, -10), armR: A.sideUp, armL: A.chest, armR2: A.dOut, armL2: A.fAloft });
-  K(55.2, { hips: H(.5, .7, { pitch: 7 }), spine: SP(18, 0, 0), head: HD(0, 8, 0), armR: A.lowFwd, armL: A.lowFwd, armR2: A.dAloft });
+  K(53, { hips: H(.26, .72, { pitch: 3, roll: -3 }), spine: SP(8, 17, 10), head: HD(24, 2, 10), armL: A.sideUp, armR: A.chest, armL2: A.fOut, armR2: A.dAloft });
+  K(54, { hips: H(.5, .76, { pitch: -4 }), spine: SP(-12, 0, 0), head: HD(0, -14, 0), armL: A.sideUp, armR: A.sideUp, armR2: A.dHigh, armL2: A.fHigh });
+  K(55, { hips: H(.74, .72, { pitch: 3, roll: 3 }), spine: SP(8, -17, -10), head: HD(-24, 2, -10), armR: A.sideUp, armL: A.chest, armR2: A.dOut, armL2: A.fAloft });
   // the circle closes with a stamp on sam as the torso rises
-  stamp(56, 'L', .45, 50, { lift: .12, prep: .5 });
+  stamp(56, 'L', .45, 50, { lift: .16, prep: .5 });
   K(56, { hips: H(.5, .76), spine: SP(2, 0, 0), head: HD(0, 0, 0), armR: A.side, armL: A.side });
 
   // ===================================================================== B5  the build: stamps double in speed, arms rise
@@ -354,5 +354,6 @@ export function buildTandava(rig) {
   c.landingBeat = 72; // sam of the tenth Adi tala cycle
   c.poseBeat = 19.4; // first arrival in the Nataraja pose (held to 21.6)
   c.nritya = [8, 16.4]; // the storytelling passage (the camera pushes in for it)
+  c.score = buildScore(); // the sollukattu the music plays (score.js)
   return c.finalize();
 }
