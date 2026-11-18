@@ -5,13 +5,25 @@ import { rippleAt, WATER_Y } from './ripples.js';
 import { RING } from '../fx/ring.js';
 
 // Floating oil lamps (diyas): small clay bowls with a flame, set adrift in loose rows down the hall.
-// Sparse near the camera and thicker into the distance, clear of the dancer and of the view through
-// the ring. Each flame is an upright billboard with its own soft halo (no real lights); both the bowls
-// and the flames are on layer 0, so the water's reflection doubles them. Stamp ripples rock and heave
-// the lamps as they pass, and push them gently outward; a weak spring brings each one back over time.
+// Sparse near the camera and thicker into the distance, down the middle of the hall behind the dancer too,
+// but never seen through the ring: its opening belongs to the nebula (see ringMask). Each flame is an upright
+// billboard with its own soft halo (no real lights); both the bowls and the flames are on layer 0, so the
+// water's reflection doubles them. Stamp ripples rock and heave the lamps as they pass, and push them gently
+// outward; a weak spring brings each one back over time.
 
 const FLICK_GLSL = /* glsl */ `
 float lampFlick(float t, float s){ return .84 + .09 * sin(t * 11. + s * 60.) + .07 * sin(t * 23.7 + s * 17.) * sin(t * 5.3 + s * 9.); }`;
+
+// 0 where the line from the eye to p passes through the ring's opening (lamps behind the ring never show inside
+// it), 1 elsewhere. Works for any camera, and for the water's mirrored camera in the reflection pass.
+const f4 = (v) => v.toFixed(4);
+const RING_MASK_GLSL = /* glsl */ `
+float ringMask(vec3 ro, vec3 p){
+  if (ro.z <= ${f4(RING.center.z)} || p.z >= ${f4(RING.center.z)}) return 1.;
+  vec3 d = p - ro;
+  vec2 q = ro.xy + d.xy * ((${f4(RING.center.z)} - ro.z) / d.z) - vec2(${f4(RING.center.x)}, ${f4(RING.center.y)});
+  return smoothstep(.98, 1.08, length(q) / ${f4(RING.radius)});
+}`;
 
 const rng = (seed) => () => {
   seed = (seed + 0x6d2b79f5) | 0;
@@ -23,8 +35,9 @@ const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a
 
 function placeLamps(n) {
   const R = rng(11);
-  // lanes: two inside each inner row of columns, two between the inner and outer rows
-  const lanes = [5.6, 8.2, 14.4, 17.0];
+  // lanes: two down the middle (behind the dancer), two inside each inner row of columns, two between the
+  // inner and outer rows
+  const lanes = [1.2, 3.3, 5.6, 8.2, 14.4, 17.0];
   const cols = [];
   for (let i = 0; i < 9; i++) for (const sx of [-1, 1]) {
     cols.push([sx * HALL.inner, -1 - i * HALL.bay, 1.8]);
@@ -35,7 +48,7 @@ function placeLamps(n) {
     const x = (R() < 0.5 ? -1 : 1) * (lanes[Math.floor(R() * lanes.length)] + (R() - 0.5) * 1.7);
     const z = 5 - R() * 70;
     if (R() > 0.15 + 0.85 * smooth(3, -24, z)) continue;                      // few near the camera, more into the distance
-    if (R() > smooth(0.21, 0.3, Math.abs(x) / (6.5 - z))) continue;            // keep the view through the ring clear
+    if (z > RING.center.z && Math.abs(x) < 4.5) continue;                       // nothing between the camera and the dancer
     if (Math.hypot(Math.max(Math.abs(x) - RING.radius, 0), z - RING.center.z) < 3) continue; // nothing within ~3 m of the ring
     if (cols.some(([cx, cz, r]) => Math.hypot(x - cx, z - cz) < r)) continue;
     if (out.some((p) => Math.hypot(p.x - x, p.z - z) < 0.75)) continue;
@@ -45,7 +58,7 @@ function placeLamps(n) {
 }
 
 export function createLamps({ quality }) {
-  const lamps = placeLamps(quality === 'low' ? 70 : quality === 'medium' ? 130 : 170);
+  const lamps = placeLamps(quality === 'low' ? 90 : quality === 'medium' ? 170 : 220);
   const n = lamps.length;
   const group = new THREE.Group();
   const U = { uLamp: { value: new THREE.Color() }, uTime: { value: 0 } };
@@ -63,10 +76,17 @@ export function createLamps({ quality }) {
   clay.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, { uLampGlow: U.uLamp, uTime: U.uTime });
     sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute float aSeed; varying float vSeed; varying vec3 vLocal; varying float vUp;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvSeed = aSeed; vLocal = position; vUp = normal.y;');
+      .replace('#include <common>', '#include <common>\nattribute float aSeed; varying float vSeed; varying vec3 vLocal; varying float vUp; varying vec3 vWpL;')
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+vSeed = aSeed; vLocal = position; vUp = normal.y;
+vec4 wpL = vec4(transformed, 1.);
+#ifdef USE_INSTANCING
+wpL = instanceMatrix * wpL;
+#endif
+vWpL = (modelMatrix * wpL).xyz;`);
     sh.fragmentShader = sh.fragmentShader
-      .replace('#include <common>', `#include <common>\nuniform vec3 uLampGlow; uniform float uTime; varying float vSeed; varying vec3 vLocal; varying float vUp;\n${FLICK_GLSL}`)
+      .replace('#include <common>', `#include <common>\nuniform vec3 uLampGlow; uniform float uTime; varying float vSeed; varying vec3 vLocal; varying float vUp; varying vec3 vWpL;\n${FLICK_GLSL}\n${RING_MASK_GLSL}`)
+      .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\nif (ringMask(cameraPosition, vWpL) < .5) discard;')
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
 {
   // the flame lights the inside of the bowl and the rim; a little reaches the outer wall's shoulder
@@ -97,6 +117,7 @@ export function createLamps({ quality }) {
       attribute vec3 iPos; attribute float iSeed; uniform float uPx;
       varying vec2 vP; varying float vSeed; varying float vT;
       ${ATMO_GLSL}
+      ${RING_MASK_GLSL}
       void main(){
         vec3 toC = cameraPosition - iPos; float d = length(toC);
         vec3 right = normalize(vec3(toC.z, 0., -toC.x) + vec3(1e-5, 0., 0.));   // upright: turns only about the vertical
@@ -105,7 +126,7 @@ export function createLamps({ quality }) {
         vP = position.xy * ${HR.toFixed(3)};
         vec3 w = iPos + vec3(0., .035, 0.) + (right * position.x + vec3(0., position.y, 0.)) * ${HR.toFixed(3)} * k;
         vSeed = iSeed;
-        vT = exp(-atmoTau(cameraPosition, -toC / d, d)) / (k * k);
+        vT = exp(-atmoTau(cameraPosition, -toC / d, d)) / (k * k) * ringMask(cameraPosition, iPos + vec3(0., .035, 0.));
         gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.);
       }`,
     fragmentShader: /* glsl */ `

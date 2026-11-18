@@ -207,7 +207,8 @@ export function createPetals({ quality }) {
      */
     update(time, dt, palette, { beat, landingBeat, beatDur, beats, hips, wind, spin, impacts, power, camera }) {
       if (state.prevBeat !== null && state.prevBeat < landingBeat && beat >= landingBeat && beat - state.prevBeat < 2) {
-        shower(time, time + Math.max(4, (beats - 3.5 - landingBeat) * beatDur), camera);
+        // they rest on the water through the return and into the stillness that opens the next cycle (beat ~8)
+        shower(time, time + (beats - landingBeat + 8) * beatDur, camera);
       }
       state.prevBeat = beat;
       // the air keeps turning a while after the spin stops
@@ -258,7 +259,7 @@ export function createPetals({ quality }) {
           if (y <= WATER_Y + 0.003) {
             st[i] = FLOATING; y = WATER_Y + 0.003;
             vel[k] *= 0.3; vel[k + 2] *= 0.3; vel[k + 1] = 0;
-            t1[i] = Math.min(time + 4 + 3 * R(), state.deadline);
+            t1[i] = Math.max(time + 3, state.deadline - 4 * R());   // then sink one by one over the last few seconds
           }
           // tilted along its swing, hardest at the ends; spinning about its own axis; tumbling, for some
           qa.setFromAxisAngle(nrm.set(-sz, 0, sx), rock[i] * Math.cos(tt));

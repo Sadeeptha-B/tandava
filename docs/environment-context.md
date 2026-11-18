@@ -101,10 +101,16 @@ crest). `env.impacts` is the live `uImpacts` array. `WATER_Y = 0.018`.
 
 ### 6. Floating oil lamps: [src/stage/lamps.js](../src/stage/lamps.js)
 
-- **Placement** (`placeLamps`, seeded, deterministic): four lanes each side (x ≈ 5.6, 8.2, 14.4, 17.0, jittered),
-  z from +5 to −65. Rejected: within 3 m of the ring, near columns, closer than 0.75 m to another lamp, and inside
-  the wedge seen through the ring from the cinematic camera (`|x| / (6.5 − z) < ~0.25`), so the dancer and nebula
-  stay clear. Acceptance rises with distance. 70 / 130 / 170 lamps for low / medium / high.
+- **Placement** (`placeLamps`, seeded, deterministic): six lanes each side (x ≈ 1.2, 3.3 down the middle behind
+  the dancer, then 5.6, 8.2, 14.4, 17.0; jittered), z from +5 to −65. Rejected: within 3 m of the ring, between
+  the camera and the dancer (`z > ring.z` and `|x| < 4.5`), near columns, and closer than 0.75 m to another lamp.
+  Acceptance rises with distance. 90 / 170 / 220 lamps for low / medium / high.
+- **Never seen through the ring** (user's rule: the opening belongs to the nebula). `ringMask(eye, p)` in the
+  shaders hides a lamp whenever the line from the eye to it crosses the ring's plane inside the opening (soft over
+  0.98–1.08 R). The flame fades per lamp (vertex), and the bowl discards per fragment. It works for any camera, and
+  in the reflection pass (mirrored eye). At the default cinematic framing the ring covers most of the hall behind
+  the dancer, so the centre-lane lamps mostly show in wider, side and orbit views, and at the ring's flanks as the
+  camera drifts. This replaced a fixed placement wedge tuned to one camera position.
 - **Bowl:** a `LatheGeometry` diya, `InstancedMesh`, `MeshStandardMaterial` (fogged through the atmosphere). Its
   inside and rim glow with the lamp's own flicker (`aSeed`, `lampFlick`).
 - **Flame:** one instanced upright billboard per lamp: teardrop flame + soft halo, additive, dimmed by
@@ -135,8 +141,11 @@ crest). `env.impacts` is the live `uImpacts` array. `WATER_Y = 0.018`.
 - **Lighting:** lit normally, plus a cool sky term (`uSky`) that depends on the facing (`(.1 + .9 * up²)`) and a
   glint as a face turns toward the light. So they flicker light and dark as they rock, which neither the motes nor
   the embers do. A trace of warm translucency near the ring (`uTrans`).
-- **On the water:** they ride `rippleAt` (heave, tilt, drift), then sink through the opaque surface in 1.2 s. All
-  are gone by beat ~78.5 (deadline `beats − 3.5`).
+- **On the water:** they ride `rippleAt` (heave, tilt, drift). They stay through the return and across the loop
+  seam into the stillness that opens the next cycle (the user found the first version vanished too soon). Then
+  they sink one by one (each in 1.2 s, staggered over 4 s before the deadline, landing beat + 27 beats, i.e. next
+  cycle's beat 8). All are gone by about beat 10 of the next cycle. `__seek` clears them, so stills of beats 0–10
+  never show them; the recorder (or `__seek(85, 26)`, which wraps) does.
 - When idle, `count = 0`. The meshes stay "visible" so the shader compiles in the warm-up (no hitch at the
   landing). Debug: `__tandava.petals.stats()` → [idle, waiting, falling, floating, burning].
 - **Video capture:** `window.__step(dt)` advances the live simulation one frame and renders it. A recorder
