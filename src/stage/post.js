@@ -52,7 +52,8 @@ export function createPost(renderer, scene, camera, { quality }) {
         col = aces(col);
         // split toning: tinted shadows, warm highlights
         float l = dot(col, vec3(.2126, .7152, .0722));
-        col += uShadow * (1. - smoothstep(0., .45, l));
+        // half the tint is a floor (the hall stays turquoise), half follows the dark's own level so near forms can sit darker than the lit distance
+        col += uShadow * (1. - smoothstep(0., .45, l)) * (.5 + .5 * smoothstep(0., .08, l));
         col *= mix(vec3(1.), uHigh, smoothstep(.4, 1., l));
         col = mix(vec3(l), col, 1.08);
         col *= 1. - smoothstep(.12, .78, r2) * .62;                      // vignette

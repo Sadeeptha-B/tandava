@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Character } from './character/character.js';
 import { attachSecondary } from './character/secondary.js';
 import { createEnvironment } from './stage/environment.js';
+import { installAtmosphere, attachAtmosphere, updateAtmosphere, atmoUniforms } from './stage/atmosphere.js';
 import { Palette } from './stage/palette.js';
 import { createPost } from './stage/post.js';
 import { createCameraRig } from './stage/camera.js';
@@ -10,6 +11,7 @@ import { createParticles } from './fx/particles.js';
 import { createAudio } from './audio.js';
 import { createUI } from './ui.js';
 
+installAtmosphere();
 const q = new URLSearchParams(location.search);
 const still = q.has('still') || q.has('beat') || q.has('sheet');
 const reducedMotion = !q.has('motion') && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -56,7 +58,7 @@ async function start() {
 
   const palette = new Palette(['fire', 'water', 'both'].includes(q.get('el')) ? q.get('el') : 'both');
   const env = createEnvironment({ quality });
-  env.setFogDensity(scene.fog.density);
+  atmoUniforms.uAtmoDensity.value = scene.fog.density;
   scene.add(env.group);
   const ring = createRing({ quality });
   scene.add(ring.group, ring.motes);
@@ -145,6 +147,9 @@ async function start() {
     fill.color.copy(P.fill); fill.intensity = 0.3;
     const ringPower = 0.5 + 0.32 * I + pulse * 0.25;
     // the ring's lights flicker with the lamps nearest them (left, right, top)
+    updateAtmosphere(P, ringPower * ring.light.total);
+    env.uniforms.uRingLight.value.copy(P.rim).multiplyScalar(ringPower * ring.light.total * env.gains.ringLight);
+    env.uniforms.uCaustic.value.copy(P.rim).multiplyScalar(ringPower * ring.light.total).lerp(P.water, 0.3).multiplyScalar(env.gains.caustic);
     back.color.copy(P.rim); back.intensity = 2.4 * ringPower * ring.light.total;
     rims.forEach((l, i) => { l.color.copy(P.rim); l.intensity = 26 * ringPower * [ring.light.left, ring.light.right, ring.light.top][i]; });
     shaft.color.copy(P.shaft); shaft.intensity = 44 + 10 * I;
@@ -222,11 +227,12 @@ async function start() {
   }
 
   // warm-up: compile shaders before the reveal
+  attachAtmosphere(scene);
   step(1 / 60);
   renderer.compile(scene, camera);
 
   // ---- dev / capture hooks ------------------------------------------------------
-  window.__tandava = { character, performer, palette, rig, camera, renderer, scene, state, particles, env, ring, post };
+  window.__tandava = { character, performer, palette, rig, camera, renderer, scene, state, particles, env, ring, post, atmo: atmoUniforms };
   window.__seek = (beat, pre = 3) => {
     const t1 = beat * character.choreo.beat, t0 = t1 - pre;
     particles.clear(); env.clearImpacts();
