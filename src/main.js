@@ -103,12 +103,13 @@ async function start() {
   const audio = createAudio();
 
   const state = { paused: false, audio: false, camera: 'cinematic', element: palette.name };
-  let time = 0, flash = 0, fade = still ? 1 : 0, introT = 0;
+  let time = 0, flash = 0, fade = still ? 1 : 0, introT = 0, prevYaw = 0;
+  const _fwd = new THREE.Vector3();
 
   performer.onStamp((e) => {
     env.addImpact(e.position.x, e.position.z, time, e.strength);
     particles.stamp(e.position, e.strength, reducedMotion);
-    ring.pulse(e.strength * 0.9);
+    ring.pulse(e.strength * 0.9, e.position);
     rig.impact(e.strength);
     flash = Math.max(flash, e.strength > 0.8 ? 0.7 : e.strength * 0.2);
     impactLight.position.set(e.position.x, 0.35, e.position.z + 0.3);
@@ -128,7 +129,13 @@ async function start() {
     flamePos.copy(flameLocal).applyMatrix4(flameBone.matrixWorld);
     particles.flame(flamePos, performer.fx.flame, dt);
     particles.update(dt, P);
-    const pulse = ring.update(time, dt, P, 0.25 + 0.6 * I, pixelScale());
+    // the dancer's turning rate drags the air (and the ring's flames) round with it
+    _fwd.set(0, 0, 1).applyQuaternion(performer.pose.hipsRot);
+    const yaw = Math.atan2(_fwd.x, _fwd.z);
+    let dYaw = yaw - prevYaw; prevYaw = yaw;
+    dYaw -= Math.round(dYaw / (2 * Math.PI)) * 2 * Math.PI;
+    const spin = dt > 1e-3 ? dYaw / dt : 0;
+    const pulse = ring.update(time, dt, P, 0.25 + 0.6 * I, pixelScale(), { spin, wind: performer.fx.wind });
     env.update(time, dt, P, camera, I * 0.6 + pulse * 0.25);
 
     // lights follow the elements and the dance
@@ -137,8 +144,9 @@ async function start() {
     key.color.copy(P.key); key.intensity = 0.4 + 0.06 * I;
     fill.color.copy(P.fill); fill.intensity = 0.3;
     const ringPower = 0.5 + 0.32 * I + pulse * 0.25;
-    back.color.copy(P.rim); back.intensity = 2.4 * ringPower;
-    for (const l of rims) { l.color.copy(P.rim); l.intensity = 26 * ringPower * (0.92 + 0.08 * Math.sin(time * 9 + l.position.x)); }
+    // the ring's lights flicker with the lamps nearest them (left, right, top)
+    back.color.copy(P.rim); back.intensity = 2.4 * ringPower * ring.light.total;
+    rims.forEach((l, i) => { l.color.copy(P.rim); l.intensity = 26 * ringPower * [ring.light.left, ring.light.right, ring.light.top][i]; });
     shaft.color.copy(P.shaft); shaft.intensity = 44 + 10 * I;
     const flick = 0.8 + 0.2 * Math.sin(time * 23) * Math.sin(time * 17.3) + 0.1 * Math.sin(time * 41);
     flameLight.color.copy(P.flame); flameLight.position.copy(flamePos).y += 0.08;
@@ -153,6 +161,8 @@ async function start() {
     dress.eyeMat.userData.uniforms.uEmber.value.copy(P.flame);
 
     rig.update(time, dt, performer);
+    camera.updateMatrixWorld();
+    post.haze(camera, RING.center, RING.radius, reducedMotion ? 0 : 0.012 * (0.8 + 0.4 * I + 0.3 * pulse));
     flash *= Math.exp(-dt * 4.5);
     const g = post.grade.uniforms;
     g.uTime.value = time; g.uFlash.value = reducedMotion ? 0 : flash;
