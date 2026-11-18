@@ -232,17 +232,18 @@ export function buildTandava(rig) {
   });
   K(49.2, { footL: foot(-.2, .33, -78, { lift: .61, pitch: 38, pole: [1, .7, .15] }), hips: H(1, .91, { dx: .03, roll: 5, yaw: 5 }), spine: SP(-2, -4, -6), armR: A.abhaya, armL: A.gaja, fx: { damaru: 0 } });
 
-  // ===================================================================== B4  rechaka: the torso draws a great circle, one quarter a beat
+  // ===================================================================== B4  rechaka: the torso circles, one quarter a beat
+  // (at Bharatanatyam scale: the weight travels round the circle and the spine stays nearly upright)
   K(49.6, { footL: foot(.5, .05, 40, { lift: .36, pitch: 35, pole: [.5, 1, .3] }), hips: H(1, .92, { roll: 6 }), spine: SP(-2, -8, 0) });
   // lower the opened leg before it strikes, so the stamp stays an accent, not a second "great landing"
   K(49.8, { footL: foot(.46, .02, 48, { lift: .1, pitch: 12 }) });
   K(50, { footL: { ...foot(.45, 0, 50), ease: 'hit' }, hips: H(.7, .78), spine: SP(4, 0, 0), armL: A.side, armR2: A.dOut, armL2: A.fOut });
   stamp(51, 'R', -.45, -50, { from: -.13, lift: .14, prep: .6 });
   K(51, { hips: { y: .72 }, spine: SP(2, 0, 0), head: HD(0, 0, 0), armR: A.side, armL: A.side });
-  K(52, { hips: H(.5, .7, { pitch: 8 }), spine: SP(22, 0, 0), head: HD(0, 12, 0), armR: A.lowFwd, armL: A.lowFwd, armR2: A.dLow, armL2: A.fLow, fx: { wind: .6 } });
-  K(53, { hips: H(.26, .72, { pitch: 3, roll: -3 }), spine: SP(8, 17, 10), head: HD(24, 2, 10), armL: A.sideUp, armR: A.chest, armL2: A.fOut, armR2: A.dAloft });
-  K(54, { hips: H(.5, .76, { pitch: -4 }), spine: SP(-12, 0, 0), head: HD(0, -14, 0), armL: A.sideUp, armR: A.sideUp, armR2: A.dHigh, armL2: A.fHigh });
-  K(55, { hips: H(.74, .72, { pitch: 3, roll: 3 }), spine: SP(8, -17, -10), head: HD(-24, 2, -10), armR: A.sideUp, armL: A.chest, armR2: A.dOut, armL2: A.fAloft });
+  K(52, { hips: H(.5, .7, { pitch: 3 }), spine: SP(9, 0, 0), head: HD(0, 6, 0), armR: A.lowFwd, armL: A.lowFwd, armR2: A.dLow, armL2: A.fLow, fx: { wind: .6 } });
+  K(53, { hips: H(.3, .72, { pitch: 1, roll: -2 }), spine: SP(3, 7, 5), head: HD(16, 2, 6), armL: A.sideUp, armR: A.chest, armL2: A.fOut, armR2: A.dAloft });
+  K(54, { hips: H(.5, .75, { pitch: -1 }), spine: SP(-5, 0, 0), head: HD(0, -7, 0), armL: A.sideUp, armR: A.sideUp, armR2: A.dHigh, armL2: A.fHigh });
+  K(55, { hips: H(.7, .72, { pitch: 1, roll: 2 }), spine: SP(3, -7, -5), head: HD(-16, 2, -6), armR: A.sideUp, armL: A.chest, armR2: A.dOut, armL2: A.fAloft });
   // the circle closes with a stamp on sam as the torso rises
   stamp(56, 'L', .45, 50, { lift: .16, prep: .5 });
   K(56, { hips: H(.5, .76), spine: SP(2, 0, 0), head: HD(0, 0, 0), armR: A.side, armL: A.side });
@@ -319,7 +320,8 @@ export function buildTandava(rig) {
   K(71.3, { armR: A.fwd, armL: A.fwd });
   // flight
   K(71.66, {
-    hips: H(.5, 1.25), footL: foot(.2, 0, 48, { lift: .44, pitch: 30 }), footR: foot(-.44, 0, -48, { lift: .44, pitch: 30 }),
+    // (the aramandi diamond held in the air: feet drawn in under the pelvis and turned out, knees open to the sides)
+    hips: H(.5, 1.25), footL: foot(.1, .02, 58, { lift: .4, pitch: 12, pole: [1, .25, .3] }), footR: foot(-.38, .02, -58, { lift: .4, pitch: 12, pole: [-1, .25, .3] }),
     spine: SP(-6, 0, 0), head: HD(0, -6, 0), armR: A.over, armL: A.over, armR2: A.dOut, armL2: A.fOut,
   });
   // landing: the cosmic stamp, on sam
