@@ -1,12 +1,14 @@
 import { Choreography } from './choreo.js';
 
 // ---------------------------------------------------------------------------
-// The Tandava: an 80-beat (48 s) seamless cycle at 100 BPM.
+// The Tandava: an 80-beat (48 s) seamless cycle at 100 BPM, i.e. ten cycles of
+// 8-beat Adi tala (4+2+2) with sam on beats 0, 8, 16, ... 72.
 //
-//   A  0–16   Awakening          stillness -> aramandi -> the Nataraja pose
-//   B 16–56   Rhythmic Tandava   stamps, lunges, knee lifts, rechaka, build
-//   C 56–68   Cosmic crescendo   pivot spin -> leap -> landing stamp
-//   D 68–80   Return             gathering back into stillness
+//   A  0–16     Awakening          stillness -> aramandi -> the Nataraja pose
+//   B 16–55     Rhythmic Tandava   stamps, lunges, knee lifts, rechaka, build
+//   C 55–70.5   Cosmic crescendo   pivot spin -> three-fold phrase (tihai) whose last
+//                                  accent is the leap's landing, on sam (64)
+//   D 70.5–80   Return             gathering back into stillness
 //
 // Stage: +Z is towards the audience, +X is the dancer's left. Metres/degrees.
 // Arm vectors are [out, up, forward] in chest space ("out" = away from the
@@ -203,82 +205,99 @@ export function buildTandava(rig) {
   stamp(52, 'L', .38, 52, { lift: .15, post: false }); sway(52, 1, .3);
   K(50, { armR: A.sideUp, armL: A.sideUp, fx: { damaru: .3, wind: .5 } });
   K(52, { armR: A.high, armL: A.high, armR2: A.dHigh, armL2: A.fHigh, fx: { damaru: .8, flame: .9 }, hips: { y: .74 } });
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 4; i++) {
     const t = 52.5 + i * 0.5, R = i % 2 === 0;
     stamp(t, R ? 'R' : 'L', R ? -.38 : .38, R ? -52 : 52, { lift: .085, prep: .3, quick: true, w: .3 });
     sway(t, R ? -1 : 1, .6);
   }
-  K(54, { armR: A.over, armL: A.over });
-  K(55, { hips: { y: .7 }, fx: { damaru: 1, wind: .7 } });
+  K(54, { armR: A.over, armL: A.over, hips: { y: .7 }, fx: { damaru: 1, wind: .7 } });
   // wind-up: coil against the turn
-  K(55.9, {
+  K(55.05, {
     hips: H(.6, .68, { yaw: -24 }), spine: SP(10, 0, -22), head: HD(0, 4, 0),
     armR: A.chest, armL: A.chest, armR2: A.dLow, armL2: A.fLow, fx: { damaru: 0 },
   });
 
-  // ===================================================================== C  spin – leap – landing
-  K(56.35, { hips: H(1, .8, { yaw: -18 }), footL: foot(.38, 0, 52), footR: foot(-.38, 0, -52) });
+  // ===================================================================== C  spin – three-fold phrase – landing on sam
+  K(55.5, { hips: H(1, .8, { yaw: -18 }), footL: foot(.38, 0, 52), footR: foot(-.38, 0, -52) });
   // the right foot now turns on its ball: author the ball point so it stays put while the heel swings round
   const tb = rig.feet.R.toBall, a0 = -52 * Math.PI / 180;
   const bx = -.38 + tb.x * Math.cos(a0) + tb.z * Math.sin(a0), bz = -tb.x * Math.sin(a0) + tb.z * Math.cos(a0);
   const spinFoot = (yaw, pitch) => foot(bx, bz, yaw, { pitch, pivot: 1 });
-  K(56.6, { footR: spinFoot(-52, 14) });
+  K(55.75, { footR: spinFoot(-52, 14) });
   // left foot to passe (authored in the hips frame so it travels with the turn)
-  K(57, {
+  K(56.15, {
     footL: foot(.12, .15, 28, { lift: .4, pitch: 45, pole: [1, .3, .55], rel: 1 }),
     footR: spinFoot(-30, 24),
     hips: H(1, .95, { yaw: 22 }), spine: SP(-2, 0, 10), head: HD(0, 0, 0),
     armR: A.side, armL: A.side, armR2: A.dOut, armL2: A.fOut, fx: { wind: 1, flame: 1 },
   });
-  K(57.5, { hips: H(1, .96, { yaw: 105 }), footR: spinFoot(55, 24) });
-  K(57.8, { head: HD(0, 0, 0) });
-  K(58, { hips: H(1, .96, { yaw: 195 }), footR: spinFoot(145, 24), spine: SP(-2, 0, 6) });
-  K(58.35, { head: HD(360, 0, 0) });
-  K(58.5, { hips: H(1, .95, { yaw: 285 }), footR: spinFoot(235, 24) });
-  K(58.9, { footL: foot(.12, .15, 28, { lift: .38, pitch: 45, pole: [1, .3, .55], rel: 1 }) });
-  K(59, { hips: H(1, .92, { yaw: 352 }), footR: spinFoot(300, 18), spine: SP(0, 0, 0) });
-  K(59.2, { footR: spinFoot(308, 6) });
+  K(56.65, { hips: H(1, .96, { yaw: 105 }), footR: spinFoot(55, 24) });
+  K(56.95, { head: HD(0, 0, 0) });
+  K(57.15, { hips: H(1, .96, { yaw: 195 }), footR: spinFoot(145, 24), spine: SP(-2, 0, 6) });
+  K(57.5, { head: HD(360, 0, 0) });
+  K(57.65, { hips: H(1, .95, { yaw: 285 }), footR: spinFoot(235, 24) });
+  K(58.05, { footL: foot(.12, .15, 28, { lift: .38, pitch: 45, pole: [1, .3, .55], rel: 1 }) });
+  K(58.15, { hips: H(1, .92, { yaw: 352 }), footR: spinFoot(300, 18), spine: SP(0, 0, 0) });
+  K(58.35, { footR: spinFoot(308, 6) });
   TURN = 360;
-  K(59.35, { footL: { ...foot(-.02, 0, 52), ease: 'hit' }, hips: H(.6, .82) });
-  K(59.5, { footR: foot(-.38, 0, -52) });
-  // anticipation: sink and sweep the arms back
-  K(59.85, { hips: H(.5, .66), spine: SP(16, 0, 0), head: HD(0, 4, 0), armR: A.low, armL: A.low, armR2: A.dLow, armL2: A.fLow });
-  K(60.05, { footL: foot(-.02, 0, 52), footR: foot(-.38, 0, -52) });
-  K(60.2, { hips: H(.5, .98), footL: foot(-.02, 0, 52, { pitch: 38 }), footR: foot(-.38, 0, -52, { pitch: 38 }), spine: SP(0, 0, 0), armR: A.fwd, armL: A.fwd });
+
+  // Three-fold phrase (tihai / teermanam): "ta ka - DHIM" three times, accents on 60, 62 and 64,
+  // i.e. on the claps of beats 5 and 7 and then on sam. The spin's landing is the first "ta"; the
+  // phrases mirror side to side; the third "DHIM" is the leap's landing.
+  const ta = (t, side, from) => stamp(t, side, side === 'R' ? -.38 : -.02, side === 'R' ? -52 : 52, { lift: .09, prep: .3, quick: true, w: .3, from });
+  const dhim = (t, side) => stamp(t, side, side === 'R' ? -.38 : -.02, side === 'R' ? -52 : 52, { lift: .18, prep: .5, w: .2, post: false });
+  const gather = (t) => K(t, { hips: { y: .74 }, spine: SP(4, 0, 0), head: HD(0, 2, 0), armR: A.chest, armL: A.chest, armR2: A.dAloft, armL2: A.fAloft });
+  // phrase 1 (accent left): the foot comes down out of the passe, then strikes as lightly as the other "ta"s
+  K(58.32, { footL: foot(-.02, 0, 52, { lift: .09, pitch: 10 }) });
+  K(58.5, { footL: { ...foot(-.02, 0, 52), ease: 'hit' }, hips: H(.6, .8) });
+  ta(59, 'R', bx); gather(59); // the right foot steps off its pivot point
+  dhim(60, 'L');
+  K(60, { hips: { y: .72 }, spine: SP(0, 7, 8), head: HD(22, -6, 4), armL: A.high, armR: A.side, armL2: A.fHigh, armR2: A.dOut });
+  // phrase 2 (accent right)
+  ta(60.5, 'R'); ta(61, 'L'); gather(61);
+  dhim(62, 'R');
+  K(62, { hips: { y: .72 }, spine: SP(0, -7, -8), head: HD(-22, -6, -4), armR: A.high, armL: A.side, armR2: A.dHigh, armL2: A.fOut });
+  // phrase 3: the second stroke drives down into the crouch, the accent is the landing
+  ta(62.5, 'L'); ta(63, 'R');
+  K(62.85, { armR: A.low, armL: A.low, armR2: A.dLow, armL2: A.fLow }); // backswing starts on the "ta"
+  K(63.08, { hips: H(.5, .66), spine: SP(16, 0, 0), head: HD(0, 4, 0) });
+  K(63.12, { footL: foot(-.02, 0, 52), footR: foot(-.38, 0, -52) });
+  K(63.32, { hips: H(.5, .98), footL: foot(-.02, 0, 52, { pitch: 38 }), footR: foot(-.38, 0, -52, { pitch: 38 }), spine: SP(0, 0, 0) });
+  K(63.3, { armR: A.fwd, armL: A.fwd });
   // flight
-  K(60.6, {
+  K(63.66, {
     hips: H(.5, 1.25), footL: foot(.2, 0, 48, { lift: .44, pitch: 30 }), footR: foot(-.44, 0, -48, { lift: .44, pitch: 30 }),
     spine: SP(-6, 0, 0), head: HD(0, -6, 0), armR: A.over, armL: A.over, armR2: A.dOut, armL2: A.fOut,
   });
-  // landing: the cosmic stamp
-  K(61, {
+  // landing: the cosmic stamp, on sam
+  K(64, {
     hips: H(.5, .87), footL: { ...foot(.45, 0, 50), ease: 'hit' }, footR: { ...foot(-.45, 0, -50), ease: 'hit' },
     spine: SP(2, 0, 0), armR: A.side, armL: A.side,
   });
-  K(61.32, { hips: H(.5, .62), spine: SP(12, 0, 0), head: HD(0, 4, 0), armR: A.press, armL: A.press, armR2: A.dOut, armL2: A.fOut, fx: { damaru: 0 } });
-  K(61.6, { fx: { damaru: 1 } });
-  K(62.6, { hips: H(.5, .72), spine: SP(-2, 0, 0), head: HD(0, -6, 0) });
-  K(63.6, { fx: { damaru: 1 } });
-  K(64, { hips: H(.5, .75), spine: SP(-5, 0, 0), head: HD(0, -9, 0), armR: A.sideUp, armL: A.sideUp, armR2: A.dHigh, armL2: A.fHigh, fx: { damaru: 0, wind: .6 } });
+  K(64.32, { hips: H(.5, .62), spine: SP(12, 0, 0), head: HD(0, 4, 0), armR: A.press, armL: A.press, armR2: A.dOut, armL2: A.fOut, fx: { damaru: 0 } });
+  K(64.6, { fx: { damaru: 1 } });
+  K(65.6, { hips: H(.5, .72), spine: SP(-2, 0, 0), head: HD(0, -6, 0) });
+  K(66.6, { fx: { damaru: 1 } });
+  K(67, { hips: H(.5, .75), spine: SP(-5, 0, 0), head: HD(0, -9, 0), armR: A.sideUp, armL: A.sideUp, armR2: A.dHigh, armL2: A.fHigh, fx: { damaru: 0, wind: .6 } });
   // afterglow sway
-  K(65.3, { hips: H(.72, .74), spine: SP(0, -9, -5), head: HD(-14, -3, -5), armR: A.high, armL: A.side });
-  K(66.8, { hips: H(.28, .74), spine: SP(0, 9, 5), head: HD(14, -3, 5), armL: A.high, armR: A.side, armR2: A.dAloft, armL2: A.fAloft });
-  K(68, { hips: H(.5, .78), spine: SP(0, 0, 0), head: HD(0, 0, 0), armL: A.sideUp, armR: A.sideUp, fx: { flame: .7, wind: .3 } });
+  K(68.2, { hips: H(.72, .74), spine: SP(0, -9, -5), head: HD(-14, -3, -5), armR: A.high, armL: A.side });
+  K(69.5, { hips: H(.28, .74), spine: SP(0, 9, 5), head: HD(14, -3, 5), armL: A.high, armR: A.side, armR2: A.dAloft, armL2: A.fAloft });
+  K(70.5, { hips: H(.5, .78), spine: SP(0, 0, 0), head: HD(0, 0, 0), armL: A.sideUp, armR: A.sideUp, fx: { flame: .7, wind: .3 } });
 
   // ===================================================================== D  return
-  K(68.8, { hips: H(.84, .79), footL: foot(.45, 0, 50) });
-  K(69.4, { footL: foot(.28, .03, 30, { lift: .09, pitch: 12 }) });
-  K(70, { footL: foot(.10, 0, 18), hips: H(.86, .9) });
-  K(70.7, { hips: H(.16, .86), footR: foot(-.45, 0, -50) });
-  K(71.3, { footR: foot(-.28, .03, -30, { lift: .09, pitch: 12 }) });
-  K(71.9, { footR: foot(-.10, 0, -18), hips: H(.2, .95) });
-  K(72.5, { armR: A.over, armL: A.over, spine: SP(-4, 0, 0), head: HD(0, -8, 0) });
-  K(73.5, { hips: H(.5, .975) });
-  K(75.5, { armR: A.chest, armL: A.chest, spine: SP(0, 0, 0), head: HD(0, 2, 0), armR2: A.dAloft, armL2: A.fAloft });
-  K(78, { armR: A.open, armL: A.open, armR2: A.dLow, armL2: A.fLow, hips: H(.68, .972, { roll: -3 }), spine: SP(3, 4, 0), head: HD(0, 9, -2), fx: { flame: .3, wind: .08, damaru: 0 } });
+  K(71.1, { hips: H(.84, .79), footL: foot(.45, 0, 50) });
+  K(71.7, { footL: foot(.28, .03, 30, { lift: .09, pitch: 12 }) });
+  K(72.3, { footL: foot(.10, 0, 18), hips: H(.86, .9) });
+  K(73, { hips: H(.16, .86), footR: foot(-.45, 0, -50) });
+  K(73.6, { footR: foot(-.28, .03, -30, { lift: .09, pitch: 12 }) });
+  K(74.2, { footR: foot(-.10, 0, -18), hips: H(.2, .95) });
+  K(74.8, { armR: A.over, armL: A.over, spine: SP(-4, 0, 0), head: HD(0, -8, 0) });
+  K(75.7, { hips: H(.5, .975) });
+  K(77.5, { armR: A.chest, armL: A.chest, spine: SP(0, 0, 0), head: HD(0, 2, 0), armR2: A.dAloft, armL2: A.fAloft });
+  K(79.2, { armR: A.open, armL: A.open, armR2: A.dLow, armL2: A.fLow, hips: H(.68, .972, { roll: -3 }), spine: SP(3, 4, 0), head: HD(0, 9, -2), fx: { flame: .3, wind: .08, damaru: 0 } });
 
-  c.intensityKeys = [[0, .12], [8, .28], [12, .4], [16, .6], [24, .62], [32, .7], [40, .72], [48, .8], [56, .9], [59, .95], [61, 1], [64, .95], [68, .6], [74, .3], [80, .12]];
-  c.phases = [[0, 'A'], [16, 'B'], [56, 'C'], [68, 'D']];
-  c.landingBeat = 61;
+  c.intensityKeys = [[0, .12], [8, .28], [12, .4], [16, .6], [24, .62], [32, .7], [40, .72], [48, .8], [55, .86], [58.5, .9], [62, .95], [64, 1], [67, .95], [70.5, .6], [76, .3], [80, .12]];
+  c.phases = [[0, 'A'], [16, 'B'], [55, 'C'], [70.5, 'D']];
+  c.landingBeat = 64; // sam of the ninth Adi tala cycle
   return c.finalize();
 }

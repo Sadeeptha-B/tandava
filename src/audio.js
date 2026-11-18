@@ -67,14 +67,18 @@ export function createAudio() {
       if (!enabled || !ctx) return;
       const t = ctx.currentTime + 0.012, beat = performer.beatPos, I = performer.intensity;
       drone.gain.setTargetAtTime(0.35 + 0.5 * I, t, 0.6);
-      // tala pulse: 8-beat cycle, heavier on sam (1) and the half (5)
+      // tala pulse: Adi tala, 8 beats as 4+2+2. Claps fall on 1 (sam), 5 and 7; finger counts
+      // on 2-4; waves on 6 and 8. Sam is the heaviest, waves the lightest.
       const whole = Math.floor(beat * 2) / 2;
       if (whole !== lastBeat) {
         lastBeat = whole;
         const onBeat = whole % 1 === 0, pos = whole % 8;
         if (I > 0.2) {
-          if (onBeat) drum(t, pos === 0 ? 150 : pos === 4 ? 132 : 196, pos % 4 === 0 ? 70 : 150, 0.26, (pos % 4 === 0 ? 0.3 : 0.16) * (0.4 + I), 0.25);
-          else if (I > 0.6) drum(t, 392, 340, 0.08, 0.07 * I, 0.6, 0.2);
+          if (onBeat) {
+            const sam = pos === 0, clap = pos === 4 || pos === 6, wave = pos === 5 || pos === 7;
+            const vol = sam ? 0.34 : clap ? 0.26 : wave ? 0.11 : 0.16;
+            drum(t, sam ? 150 : clap ? 132 : 196, sam || clap ? 70 : 150, sam ? 0.32 : 0.26, vol * (0.4 + I), 0.25);
+          } else if (I > 0.6) drum(t, 392, 340, 0.08, 0.07 * I, 0.6, 0.2);
         }
         if (Math.abs(whole - (performer.c.landingBeat - 2.5)) < 0.01) swellDone = false;
       }
