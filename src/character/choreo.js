@@ -23,6 +23,13 @@ export const MUDRA = {
   tripataka: [.25, .1, .2, -.28, -.14, -.06, 0, -.03, -.14, -.06, 0, 0, 1.3, .5, .2, 0, -.12, -.06, 0, -.02],
   fist: [.6, .5, .6, -.2, 1.45, 1.5, 1.0, 0, 1.45, 1.5, 1.0, 0, 1.45, 1.5, 1.0, 0, 1.45, 1.5, 1.0, 0],
   dola: [.1, .1, .1, .1, .1, .16, .12, .04, .16, .2, .14, 0, .22, .24, .16, .03, .28, .28, .18, .08],
+  // nritya (storytelling) hands
+  // chandrakala, the crescent moon: thumb and index stretched apart, the rest folded
+  chandrakala: [-.25, 0, 0, .9, -.1, -.05, 0, -.05, 1.45, 1.5, 1.0, 0, 1.45, 1.5, 1.0, 0, 1.45, 1.5, 1.0, 0],
+  // sarpashirsha, the serpent's hood: pataka with the fingers held together and gently domed
+  sarpashirsha: [.25, .1, .2, -.3, .18, .14, .08, 0, .18, .14, .08, 0, .18, .14, .08, 0, .2, .16, .08, 0],
+  // mrigashirsha, the deer's head: the three middle fingers bent forward, thumb and little finger raised
+  mrigashirsha: [-.2, 0, 0, .8, 1.35, .35, .15, 0, 1.4, .35, .15, 0, 1.4, .35, .15, 0, -.1, -.05, 0, .4],
 };
 
 const ARM_SCHEMA = [['u', 3, [0.3, -0.9, 0.1]], ['f', 3, [0.2, -0.9, 0.3]], ['hand', 4, [0, 0, 0, 1]], ['pole', 3, [0, -0.5, -1]], ['curls', CURLS, MUDRA.relaxed]];

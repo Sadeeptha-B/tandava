@@ -1,6 +1,6 @@
 // Dev-only pose lab: neutral studio lighting for checking mesh, rig and choreography.
-//   /lab.html?view=front|side|back|34|top&zoom=1&cy=0.95&beat=11.4
-//   /lab.html?sheet=0,4,8,11.4&cols=4&view=front     contact sheet of beats
+//   /lab.html?view=front|side|back|34|top&zoom=1&cy=0.95&beat=19.4
+//   /lab.html?sheet=0,4,8,19.4&cols=4&view=front     contact sheet of beats
 //   /lab.html?from=16&to=24&step=0.5&cols=8           contact sheet over a range
 import * as THREE from 'three';
 import { Character } from './character/character.js';

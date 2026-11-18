@@ -300,12 +300,12 @@ async function start() {
   if (still) {
     state.paused = true;
     rig.state.zoom = +(q.get('zoom') ?? 1);
-    window.__seek(+(q.get('beat') ?? 11.4));
+    window.__seek(+(q.get('beat') ?? character.choreo.poseBeat));
     veil.classList.add('lifted');
     veil.style.transition = 'none';
     ui.sync();
   } else {
-    if (reducedMotion) { window.__seek(12.6); state.paused = true; fade = 1; ui.sync(); ui.poke(); }
+    if (reducedMotion) { window.__seek(character.choreo.poseBeat + 1.2); state.paused = true; fade = 1; ui.sync(); ui.poke(); }
     else { time = 0; character.seek(0, 0.5); particles.clear(); env.clearImpacts(); lamps.reset(); petals.clear(); }
     requestAnimationFrame(() => veil.classList.add('lifted'));
   }
